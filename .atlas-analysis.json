@@ -1,0 +1,138 @@
+{
+  "projectType": "saas",
+  "projectName": "Macro",
+  "projectDescription": "An integrated workspace for email, messaging, tasks, docs, and files with bidirectional @linking.",
+  "theme": "palm",
+  "primaryColor": "#6366F1",
+  "lightColor": "#818CF8",
+  "darkColor": "#4F46E5",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/email",
+              "features/messaging",
+              "features/documents",
+              "features/canvas",
+              "features/linking",
+              "features/search",
+              "features/ai-chat"
+            ]
+          },
+          {
+            "group": "User Guide",
+            "pages": [
+              "guide/keyboard-shortcuts",
+              "guide/permissions",
+              "guide/collaboration",
+              "guide/file-storage"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "development/architecture",
+              "development/getting-started",
+              "development/directory-structure"
+            ]
+          },
+          {
+            "group": "Frontend",
+            "pages": [
+              "development/frontend/overview",
+              "development/frontend/solidjs",
+              "development/frontend/components",
+              "development/frontend/editor",
+              "development/frontend/testing"
+            ]
+          },
+          {
+            "group": "Backend",
+            "pages": [
+              "development/backend/overview",
+              "development/backend/services",
+              "development/backend/database",
+              "development/backend/api",
+              "development/backend/testing"
+            ]
+          },
+          {
+            "group": "Infrastructure",
+            "pages": [
+              "development/infrastructure/deployment",
+              "development/infrastructure/aws",
+              "development/infrastructure/docker"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api/overview",
+              "api/authentication"
+            ]
+          },
+          {
+            "group": "Core Services",
+            "pages": [
+              "api/document-storage",
+              "api/email-service",
+              "api/comms-service",
+              "api/search-service",
+              "api/authentication-service"
+            ]
+          },
+          {
+            "group": "Processing Services",
+            "pages": [
+              "api/document-cognition",
+              "api/convert-service",
+              "api/notification-service"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Unified email client with Gmail sync and instant search",
+    "Team messaging with bidirectional @links to docs, tasks, and files",
+    "Real-time collaborative documents using CRDT",
+    "2D canvas with embedded @links to tasks, files, and emails",
+    "AI chat with context from emails, messages, and docs",
+    "Unified search across all content types",
+    "Keyboard-first navigation and hotkeys",
+    "Intelligent permissions inherited from channels"
+  ],
+  "publicApiSurface": [
+    "document-storage-service API",
+    "email-service API",
+    "comms-service API",
+    "search-service API",
+    "authentication-service API",
+    "document-cognition-service API",
+    "notification-service API",
+    "connection-gateway WebSocket API"
+  ]
+}
