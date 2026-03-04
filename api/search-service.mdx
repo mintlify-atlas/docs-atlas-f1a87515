@@ -1,0 +1,429 @@
+---
+title: "Search Service API"
+description: "API reference for the Search Service - unified search across documents, emails, channels, and projects"
+---
+
+## Overview
+
+The Search Service provides unified search capabilities across all content in Macro. It indexes documents, emails, channel messages, and projects in OpenSearch and provides fast, relevant search results with filtering and pagination.
+
+**Base URL:** `/search`
+
+**Authentication:** JWT authentication required via the `Authorization` header.
+
+## Core Concepts
+
+### Unified Search
+
+Unified search queries across all content types simultaneously:
+- Documents
+- Email threads and messages
+- Channel messages
+- Projects/folders
+
+Results are ranked by relevance and recency, then combined and sorted.
+
+### Simple Search
+
+Simple search endpoints provide type-specific search with simpler query syntax and filters.
+
+### Search Indexing
+
+Content is indexed asynchronously:
+1. Service sends events to SQS queue when content changes
+2. Search processing service extracts and indexes content
+3. OpenSearch makes content searchable (typically within seconds)
+
+---
+
+## Unified Search
+
+### Search All Content
+
+```http
+POST /search
+```
+
+Performs a unified search across all content types.
+
+<ParamField body="terms" type="array" required>
+  Array of search terms/keywords
+</ParamField>
+
+<ParamField body="search_on" type="array">
+  Content types to search: `documents`, `emails`, `channels`, `projects`, `chats`
+</ParamField>
+
+<ParamField body="filters" type="object">
+  Additional filters (date range, owner, etc.)
+</ParamField>
+
+<ParamField query="page_size" type="integer">
+  Number of results per page (default: 10, max: 100)
+</ParamField>
+
+<ParamField query="cursor" type="string">
+  Base64-encoded pagination cursor from previous response
+</ParamField>
+
+<ResponseField name="results" type="array">
+  Array of search result items from all content types
+</ResponseField>
+
+<ResponseField name="next_cursor" type="string">
+  Cursor for next page of results (null if no more results)
+</ResponseField>
+
+<Note>
+Results are enriched with metadata from respective services (document names, email subjects, channel names) before being returned. Empty or deleted items are filtered out.
+</Note>
+
+<CodeGroup>
+```json Request
+{
+  "terms": ["product", "roadmap"],
+  "search_on": ["documents", "channels"],
+  "filters": {
+    "date_range": {
+      "start": "2026-01-01T00:00:00Z",
+      "end": "2026-03-04T23:59:59Z"
+    }
+  }
+}
+```
+
+```json Response
+{
+  "results": [
+    {
+      "type": "document",
+      "id": "doc_123",
+      "name": "Product Roadmap Q1 2026",
+      "snippet": "...product roadmap includes new features...",
+      "score": 0.95,
+      "updated_at": "2026-03-01T10:00:00Z",
+      "owner_id": "macro|user@example.com"
+    },
+    {
+      "type": "channel_message",
+      "id": "msg_456",
+      "channel_id": "channel_789",
+      "channel_name": "Product Team",
+      "content": "Discussing the product roadmap for next quarter",
+      "score": 0.87,
+      "updated_at": "2026-03-03T15:30:00Z",
+      "sender_id": "macro|colleague@example.com"
+    }
+  ],
+  "next_cursor": "eyJvZmZzZXQiOjEwfQ=="
+}
+```
+</CodeGroup>
+
+---
+
+## Simple Search
+
+Simple search endpoints provide type-specific search with straightforward query syntax.
+
+### Search Documents
+
+```http
+POST /search/simple/documents
+```
+
+Searches only documents.
+
+<ParamField body="query" type="string" required>
+  Search query string
+</ParamField>
+
+<ParamField body="filters" type="object">
+  Document-specific filters
+</ParamField>
+
+<ParamField body="filters.project_id" type="string">
+  Filter to specific project
+</ParamField>
+
+<ParamField body="filters.owner_id" type="string">
+  Filter to specific owner
+</ParamField>
+
+<ParamField body="filters.created_after" type="datetime">
+  Filter to documents created after date
+</ParamField>
+
+<ParamField query="page_size" type="integer">
+  Results per page
+</ParamField>
+
+<ParamField query="cursor" type="string">
+  Pagination cursor
+</ParamField>
+
+<ResponseField name="results" type="array">
+  Array of document search results
+</ResponseField>
+
+<ResponseField name="next_cursor" type="string">
+  Next page cursor
+</ResponseField>
+
+### Search Emails
+
+```http
+POST /search/simple/emails
+```
+
+Searches email threads and messages.
+
+<ParamField body="query" type="string" required>
+  Search query
+</ParamField>
+
+<ParamField body="filters" type="object">
+  Email filters
+</ParamField>
+
+<ParamField body="filters.from" type="string">
+  Filter by sender email
+</ParamField>
+
+<ParamField body="filters.to" type="string">
+  Filter by recipient email
+</ParamField>
+
+<ParamField body="filters.has_attachment" type="boolean">
+  Filter to emails with attachments
+</ParamField>
+
+<ParamField body="filters.unread" type="boolean">
+  Filter to unread emails
+</ParamField>
+
+### Search Channels
+
+```http
+POST /search/simple/channels
+```
+
+Searches channel messages.
+
+<ParamField body="query" type="string" required>
+  Search query
+</ParamField>
+
+<ParamField body="filters" type="object">
+  Channel filters
+</ParamField>
+
+<ParamField body="filters.channel_id" type="string">
+  Filter to specific channel
+</ParamField>
+
+<ParamField body="filters.sender_id" type="string">
+  Filter by message sender
+</ParamField>
+
+### Search Projects
+
+```http
+POST /search/simple/projects
+```
+
+Searches projects and folders.
+
+<ParamField body="query" type="string" required>
+  Search query
+</ParamField>
+
+<ParamField body="filters.owner_id" type="string">
+  Filter by project owner
+</ParamField>
+
+### Search Chats
+
+```http
+POST /search/simple/chats
+```
+
+Searches chat messages (distinct from channels).
+
+<ParamField body="query" type="string" required>
+  Search query
+</ParamField>
+
+---
+
+## Search Features
+
+### Query Syntax
+
+The unified search supports:
+
+**Basic queries:**
+- Single terms: `roadmap`
+- Multiple terms: `["product", "roadmap"]` (matches documents with both)
+- Phrases: Use multiple terms for phrase-like matching
+
+**Filters:**
+- Date ranges
+- Content type restrictions
+- Owner/creator filters
+- Project/folder filters
+
+### Ranking
+
+Results are ranked by:
+1. **Relevance score** - How well the content matches the query
+2. **Recency** - More recent content ranks higher
+3. **User activity** - Frequently accessed items rank higher
+
+Within the unified search, results are sorted by `updated_at` after type-specific ranking.
+
+### Result Enrichment
+
+Raw OpenSearch results are enriched with metadata:
+- Document names and owners
+- Email subjects and senders
+- Channel names
+- Project hierarchy
+
+Deleted or inaccessible items are filtered from results.
+
+---
+
+## Error Codes
+
+### Common Errors
+
+- `200` - Success
+- `400` - Bad Request (invalid query syntax)
+- `401` - Unauthorized
+- `500` - Internal Server Error
+- `503` - Service Unavailable (OpenSearch down)
+
+### Service-Specific Errors
+
+- `INVALID_QUERY` - Query syntax is invalid
+- `INVALID_CURSOR` - Pagination cursor is malformed or expired
+- `SEARCH_TIMEOUT` - Query took too long to execute
+- `INDEX_NOT_READY` - Search index is still building
+
+<CodeGroup>
+```json Error Response
+{
+  "error": "INVALID_QUERY",
+  "message": "Search terms cannot be empty"
+}
+```
+</CodeGroup>
+
+---
+
+## Data Models
+
+### Unified Search Request
+
+```typescript
+interface UnifiedSearchRequest {
+  terms: string[];                  // Search keywords
+  search_on?: SearchEntityType[];   // Content types to search
+  filters?: SearchFilters;
+}
+
+type SearchEntityType = 
+  | "documents" 
+  | "emails" 
+  | "channels" 
+  | "projects" 
+  | "chats";
+```
+
+### Unified Search Response
+
+```typescript
+interface UnifiedSearchResponse {
+  results: UnifiedSearchResponseItem[];
+  next_cursor?: string;
+}
+
+type UnifiedSearchResponseItem = 
+  | DocumentSearchResult
+  | EmailSearchResult
+  | ChannelSearchResult
+  | ProjectSearchResult
+  | ChatSearchResult;
+```
+
+### Document Search Result
+
+```typescript
+interface DocumentSearchResult {
+  type: "document";
+  id: string;
+  name: string;
+  snippet: string;                  // Highlighted excerpt
+  score: number;                    // Relevance score (0-1)
+  updated_at: string;
+  owner_id: string;
+  project_id?: string;
+}
+```
+
+### Email Search Result
+
+```typescript
+interface EmailSearchResult {
+  type: "email";
+  id: string;
+  thread_id: string;
+  subject: string;
+  snippet: string;
+  score: number;
+  updated_at: string;
+  from: string;
+  to: string[];
+  has_attachments: boolean;
+}
+```
+
+### Channel Search Result
+
+```typescript
+interface ChannelSearchResult {
+  type: "channel_message";
+  id: string;
+  channel_id: string;
+  channel_name: string;
+  content: string;
+  score: number;
+  updated_at: string;
+  sender_id: string;
+}
+```
+
+### Search Pagination
+
+```typescript
+interface SearchPaginationParams {
+  page?: number;
+  page_size?: number;
+  cursor?: string;                  // Base64-encoded cursor
+}
+```
+
+### Search Filters
+
+```typescript
+interface SearchFilters {
+  date_range?: {
+    start?: string;                 // ISO 8601
+    end?: string;
+  };
+  owner_id?: string;
+  project_id?: string;
+  // Type-specific filters based on entity
+}
+```

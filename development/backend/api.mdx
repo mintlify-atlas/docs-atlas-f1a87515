@@ -1,0 +1,405 @@
+---
+title: API Design & RPC Patterns
+description: API patterns and service communication in Macro's backend
+---
+
+## API Framework
+
+Macro's backend uses **Axum 0.7** as the web framework for building HTTP APIs.
+
+Key features:
+- Type-safe request/response handling
+- Extractors for dependency injection
+- Middleware support
+- OpenAPI documentation generation
+- Async/await with Tokio runtime
+
+## axum_rpc Pattern
+
+The codebase uses a custom RPC pattern built on top of Axum, located in:
+
+```
+rpc/
+├── axum_rpc/        # Core RPC framework
+├── axum_rpc_emit/   # Code generation for RPC
+└── axum_rpc_parse/  # RPC parsing utilities
+```
+
+This pattern provides:
+- Consistent RPC-style APIs across services
+- Automatic client generation
+- Type-safe service communication
+- OpenAPI schema generation
+
+## Handler Patterns
+
+### Using Extension for Dependencies
+
+**Important:** This codebase uses `Extension` instead of `State` for handlers.
+
+```rust
+use axum::{Extension, Json};
+use axum::response::IntoResponse;
+
+#[axum::debug_handler]
+async fn create_document(
+    Extension(db): Extension<PgPool>,
+    Extension(s3): Extension<S3Client>,
+    Json(payload): Json<CreateDocumentRequest>,
+) -> Result<impl IntoResponse> {
+    let document = create_doc(&db, &s3, payload).await?;
+    Ok(Json(document))
+}
+```
+
+### Error Handling
+
+Use `anyhow::bail!` for error returns:
+
+```rust
+use anyhow::{bail, Result};
+
+pub async fn validate_document(doc: &Document) -> Result<()> {
+    if doc.title.is_empty() {
+        // ✅ Preferred - concise and idiomatic
+        bail!("Document title cannot be empty");
+    }
+    
+    // ❌ Avoid - more verbose
+    // return Err(anyhow::anyhow!("Document title cannot be empty"));
+    
+    Ok(())
+}
+```
+
+From CLAUDE.md:
+> "Prefer `anyhow::bail!("error message")` over `Err(anyhow::anyhow!("error message"))`"
+
+### Tracing Instrumentation
+
+Always include `err` in the `tracing::instrument` attribute:
+
+```rust
+use tracing::instrument;
+
+// ✅ Correct - includes err
+#[instrument(err, skip(db))]
+pub async fn get_document(
+    db: &PgPool,
+    id: &str,
+) -> Result<Document> {
+    let doc = sqlx::query_as!(/* ... */)
+        .fetch_one(db)
+        .await
+        .inspect_err(|e| tracing::error!(error=?e, "Failed to fetch document"))?;
+    
+    Ok(doc)
+}
+
+// ❌ Wrong - don't include level = "info"
+// #[instrument(level = "info", err)]
+```
+
+From CLAUDE.md:
+> "Include `err` when adding the `tracing::instrument` attribute to functions. Never include `level = "info"`."
+
+### Error Logging Pattern
+
+Use `.inspect_err()` instead of `if let Err(e)`:
+
+```rust
+// ✅ Preferred
+let result = operation()
+    .await
+    .inspect_err(|e| tracing::error!(error=?e, "Operation failed"))?;
+
+// ❌ Avoid
+let result = operation().await;
+if let Err(e) = &result {
+    tracing::error!("Operation failed: {}", e);
+}
+result?;
+```
+
+When logging errors, use structured fields:
+
+```rust
+// ✅ Correct - error as separate field
+tracing::error!(error=?e, "Failed to process document");
+
+// ❌ Wrong - error injected into message
+// tracing::error!("Failed to process document: {}", e);
+```
+
+## OpenAPI Documentation
+
+Services use `utoipa` for OpenAPI schema generation:
+
+```rust
+use utoipa::{OpenApi, ToSchema};
+use axum::Json;
+
+#[derive(serde::Deserialize, ToSchema)]
+pub struct CreateDocumentRequest {
+    /// Document title
+    pub title: String,
+    /// Document content
+    pub content: String,
+}
+
+#[derive(serde::Serialize, ToSchema)]
+pub struct DocumentResponse {
+    pub id: String,
+    pub title: String,
+}
+
+/// Create a new document
+#[utoipa::path(
+    post,
+    path = "/documents",
+    request_body = CreateDocumentRequest,
+    responses(
+        (status = 200, description = "Document created", body = DocumentResponse),
+        (status = 400, description = "Invalid request")
+    )
+)]
+async fn create_document(
+    Extension(db): Extension<PgPool>,
+    Json(req): Json<CreateDocumentRequest>,
+) -> Result<Json<DocumentResponse>> {
+    // Implementation
+}
+```
+
+## Service Communication
+
+### Internal Service Clients
+
+Most services provide a client crate for inter-service communication:
+
+```rust
+// In document_storage_service_client
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+
+pub struct DocumentStorageClient {
+    base_url: String,
+    client: Client,
+}
+
+impl DocumentStorageClient {
+    pub fn new(base_url: String) -> Self {
+        Self {
+            base_url,
+            client: Client::new(),
+        }
+    }
+    
+    pub async fn get_document(&self, id: &str) -> Result<Document> {
+        let url = format!("{}/documents/{}", self.base_url, id);
+        let response = self.client
+            .get(&url)
+            .send()
+            .await?
+            .json()
+            .await?;
+        Ok(response)
+    }
+}
+```
+
+### Using Service Clients
+
+```rust
+use document_storage_service_client::DocumentStorageClient;
+use axum::Extension;
+
+#[axum::debug_handler]
+async fn handler(
+    Extension(doc_storage): Extension<DocumentStorageClient>,
+) -> Result<impl IntoResponse> {
+    let document = doc_storage.get_document("123").await?;
+    Ok(Json(document))
+}
+```
+
+## Async Processing with SQS
+
+For long-running or background operations, use SQS queues:
+
+```rust
+use sqs_client::SqsClient;
+use serde::Serialize;
+
+#[derive(Serialize)]
+struct ProcessDocumentMessage {
+    document_id: String,
+    operation: String,
+}
+
+async fn queue_document_processing(
+    sqs: &SqsClient,
+    document_id: String,
+) -> Result<()> {
+    let message = ProcessDocumentMessage {
+        document_id,
+        operation: "extract_text".to_string(),
+    };
+    
+    sqs.send_message("document-processing-queue", &message).await?;
+    Ok(())
+}
+```
+
+### SQS Worker Pattern
+
+Workers process messages from SQS queues:
+
+```rust
+use sqs_worker::SqsWorker;
+use lambda_runtime::{Error, LambdaEvent};
+
+#[tokio::main]
+async fn main() -> Result<(), Error> {
+    let worker = SqsWorker::new(handler);
+    worker.run().await
+}
+
+async fn handler(
+    event: LambdaEvent<SqsEvent>,
+) -> Result<()> {
+    for record in event.payload.records {
+        let message: ProcessDocumentMessage = 
+            serde_json::from_str(&record.body)?;
+        
+        process_document(&message).await?;
+    }
+    Ok(())
+}
+```
+
+## Lambda Integration
+
+Services trigger Lambda functions for:
+- Event-driven processing (S3 uploads, scheduled tasks)
+- Async operations (text extraction, document conversion)
+- Scalable workloads
+
+```rust
+use lambda_client::LambdaClient;
+
+async fn trigger_text_extraction(
+    lambda: &LambdaClient,
+    document_id: String,
+) -> Result<()> {
+    lambda.invoke(
+        "document-text-extractor",
+        serde_json::json!({
+            "document_id": document_id
+        }),
+    ).await?;
+    
+    Ok(())
+}
+```
+
+## Request/Response Models
+
+### Model Organization
+
+Models are organized into domain-specific crates:
+
+- `model` - Core shared models
+- `models_email` - Email-related types
+- `models_search` - Search request/response types
+- `models_pagination` - Pagination utilities
+- `models_permissions` - Permission models
+- `models_opensearch` - OpenSearch document types
+
+### Common Model Pattern
+
+```rust
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
+use uuid::Uuid;
+use chrono::{DateTime, Utc};
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct Document {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub title: String,
+    pub content: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct CreateDocumentRequest {
+    pub title: String,
+    pub content: Option<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DocumentListResponse {
+    pub documents: Vec<Document>,
+    pub total: i64,
+    pub page: i32,
+}
+```
+
+## Authentication & Authorization
+
+### JWT Token Validation
+
+```rust
+use macro_auth::AuthUser;
+use axum::Extension;
+
+#[axum::debug_handler]
+async fn protected_handler(
+    Extension(user): Extension<AuthUser>,
+) -> Result<impl IntoResponse> {
+    // user.id contains authenticated user ID
+    let documents = get_user_documents(&user.id).await?;
+    Ok(Json(documents))
+}
+```
+
+### Permission Checking
+
+```rust
+use macro_share_permissions::check_permission;
+use entity_access::AccessLevel;
+
+async fn can_edit_document(
+    db: &PgPool,
+    user_id: &Uuid,
+    document_id: &Uuid,
+) -> Result<bool> {
+    let has_permission = check_permission(
+        db,
+        user_id,
+        document_id,
+        AccessLevel::Write,
+    ).await?;
+    
+    Ok(has_permission)
+}
+```
+
+## Middleware
+
+Common middleware in `macro_middleware`:
+
+- Authentication
+- Request tracing
+- CORS handling (via `macro_cors`)
+- Error handling
+- Request/response logging
+
+## Next Steps
+
+- [Testing](/development/backend/testing) - API testing strategies
+- [Services](/development/backend/services) - Service-specific API details
+- [Database](/development/backend/database) - Data access patterns

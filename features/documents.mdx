@@ -1,0 +1,152 @@
+---
+title: Documents
+description: Real-time collaborative documents with CRDT technology and @linking
+---
+
+Macro provides powerful document editing with real-time collaboration, full markdown support, and seamless integration with the rest of your workspace.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Real-time Collaboration" icon="users-between-lines">
+    Multiple users can edit simultaneously with CRDT-based conflict resolution
+  </Card>
+  <Card title="@Linking" icon="at">
+    Reference any message, task, email, or file in the system
+  </Card>
+  <Card title="Rich Text Editor" icon="pen-to-square">
+    Full formatting, code blocks, tables, and markdown support
+  </Card>
+  <Card title="Version History" icon="clock-rotate-left">
+    Automatic version tracking with the ability to view and restore previous versions
+  </Card>
+</CardGroup>
+
+## The Unified Editor
+
+Macro uses the same rich text editor across the entire platform - emails, notes, channels, tasks, and documents share one consistent editing experience.
+
+### Supported Formatting
+
+- **Text styles**: Bold, italic, underline, strikethrough, code
+- **Headings**: H1, H2, H3 for document structure
+- **Lists**: Ordered lists, unordered lists, checklists
+- **Code blocks**: Syntax-highlighted code with language selection
+- **Quotes**: Block quotes for emphasis
+- **Links**: Insert hyperlinks to external resources
+- **Tables**: Create and edit tables inline
+- **Images**: Embed images directly in documents
+
+<Tip>
+Macro supports full markdown syntax - you can type markdown and it will automatically convert to rich text formatting.
+</Tip>
+
+## Real-time Collaboration
+
+Macro uses CRDT (Conflict-free Replicated Data Type) technology to enable true real-time collaboration:
+
+<Steps>
+  <Step title="Multiple editors">
+    Multiple people can edit the same document simultaneously
+  </Step>
+  <Step title="Automatic merging">
+    Changes from all editors are merged automatically without conflicts
+  </Step>
+  <Step title="Live cursors">
+    See where other collaborators are editing in real-time
+  </Step>
+  <Step title="Instant sync">
+    Changes appear immediately for all participants
+  </Step>
+</Steps>
+
+<Info>
+CRDT technology ensures that even if multiple people edit the same section simultaneously, their changes will merge intelligently without data loss.
+</Info>
+
+## @Linking in Documents
+
+One of Macro's most powerful features is the ability to @link to anything:
+
+### How to Create Links
+
+1. Type `@` anywhere in your document
+2. Start typing the name of what you want to reference
+3. Select from the suggestions menu
+4. The link is inserted and a bidirectional reference is created
+
+### What You Can Link
+
+- **Documents**: Other docs, notes, and wikis
+- **Tasks**: Specific tasks or entire projects
+- **Messages**: Channel messages and threads
+- **Emails**: Email threads and conversations
+- **Files**: PDFs, images, videos, and other media
+- **Users**: Team members (for mentions)
+- **Dates**: Calendar references and deadlines
+
+<Note>
+When you @mention something in a document, it creates a bidirectional link. You can trace back to see all places where a document, task, or email has been referenced.
+</Note>
+
+## Document Types
+
+Macro supports various document types:
+
+- **Notes**: Quick notes and personal documentation
+- **Collaborative docs**: Team wikis and shared documentation
+- **Meeting notes**: Structured notes with attendees and agendas
+- **Technical docs**: Code-heavy documentation with syntax highlighting
+
+## Search and Discovery
+
+Documents are fully searchable:
+
+- Full-text search across all document content
+- Search by title, content, or @mentions
+- Filter by document type, owner, or modification date
+- Query syntax: `type:document "keyword"`
+
+## Permissions
+
+Macro uses intuitive permission inheritance:
+
+- Share a document in a channel → everyone in that channel can access it
+- @mention a document to someone → they get access automatically
+- Permissions flow naturally based on how you share content
+
+<Info>
+You don't need to manually manage permissions. When you share a document with someone through any method (channel, mention, direct share), they automatically get access.
+</Info>
+
+## Keyboard Shortcuts
+
+Efficient document editing with keyboard shortcuts:
+
+| Action | Shortcut | Description |
+|--------|----------|-------------|
+| Bold | `Cmd+B` | Make text bold |
+| Italic | `Cmd+I` | Make text italic |
+| Code | `Cmd+E` | Format as code |
+| Link | `Cmd+K` | Insert a hyperlink |
+| @ Mention | `@` | Open mentions menu |
+| Save | Auto-save | Documents save automatically |
+
+## Integration with AI
+
+Documents work seamlessly with Macro's AI chat:
+
+- @mention documents in AI chat for context
+- Ask questions about document contents
+- Generate summaries of long documents
+- Get AI assistance while writing
+
+## Best Practices
+
+<Tip>
+- Use headings to structure long documents
+- @link to related documents, tasks, and emails to create a knowledge graph
+- Leverage real-time collaboration for team brainstorming
+- Use code blocks with language specification for syntax highlighting
+- Take advantage of auto-save - you never need to manually save
+</Tip>

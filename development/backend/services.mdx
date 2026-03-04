@@ -1,0 +1,263 @@
+---
+title: Microservices Architecture
+description: Structure and patterns for Macro's backend services
+---
+
+## Service Organization
+
+Macro's backend uses a microservices architecture where each service is a separate Rust crate with its own:
+
+- API endpoints and handlers
+- Database client (if needed)
+- Business logic
+- Tests and fixtures
+- OpenAPI documentation
+
+## Key Services
+
+### Document Storage Service
+
+**Crate:** `document-storage-service`
+
+**Purpose:** Main API for document storage and retrieval
+
+**Responsibilities:**
+- Document upload and download
+- File metadata management
+- Integration with S3 for file storage
+- Document permissions and access control
+- Triggers document processing pipeline
+
+**Database:** MacroDB (documents, metadata, permissions)
+
+**External Dependencies:**
+- S3 for file storage
+- SQS for triggering downstream processing
+- Lambda functions for format-specific handling
+
+### Email Service
+
+**Crate:** `email_service`
+
+**Purpose:** Email processing and management
+
+**Responsibilities:**
+- Email thread management
+- Message parsing and storage
+- Email sending via SES
+- Attachment handling
+- Email suppression and bounce handling
+
+**Database:** MacroDB (email threads, messages, metadata)
+
+**Related Crates:**
+- `email_db_client` - Database access layer
+- `email_service_client` - Client for other services
+- `email_utils` - Shared email utilities
+- `models_email` - Email data models
+- `gmail_client` - Gmail API integration
+
+**Lambda Functions:**
+- `email_suppression_handler` - Handles bounce/complaint notifications
+- `email_refresh_handler` - Periodic email synchronization
+- `email_scheduled_handler` - Scheduled email operations
+- `email_sfs_delete_handler` - Email deletion processing
+
+### Communication Service
+
+**Crate:** `comms_service`
+
+**Purpose:** Internal communication handling (messages, channels)
+
+**Responsibilities:**
+- Message creation and retrieval
+- Channel management
+- Participant tracking
+- Real-time message delivery
+- Message mentions and references
+
+**Database:** MacroDB (messages, channels, participants)
+
+**Related Crates:**
+- `comms_db_client` - Database operations
+- `comms_service_client` - Service client
+- `channels` - Channel management logic
+- `mention_utils` - Mention parsing and handling
+
+**Integration:**
+- Works with `connection_gateway` for WebSocket delivery
+- Uses `notification_service` for push notifications
+
+### Search Service
+
+**Crate:** `search_service`
+
+**Purpose:** Full-text search across documents and content
+
+**Responsibilities:**
+- Query processing and ranking
+- Filter application
+- Faceted search
+- Autocomplete suggestions
+- Search analytics
+
+**Database:** OpenSearch for indexing, MacroDB for metadata
+
+**Related Crates:**
+- `search_service_client` - Client interface
+- `search_processing_service` - Indexing pipeline
+- `models_search` - Search data models
+- `opensearch_client` - OpenSearch integration
+
+**Lambda Functions:**
+- `search_upload_handler` - Processes documents for indexing
+
+### Authentication Service
+
+**Crate:** `authentication_service`
+
+**Purpose:** User authentication and session management
+
+**Responsibilities:**
+- User login/logout
+- JWT token generation and validation
+- Session management
+- OAuth integration
+- API key management
+
+**Related Crates:**
+- `authentication_service_client` - Client for other services
+- `macro_auth` - Shared authentication utilities
+- `fusionauth` - FusionAuth integration
+
+**Integration:**
+- Uses Redis for session storage
+- Validates tokens for all authenticated requests
+
+### Document Cognition Service
+
+**Crate:** `document_cognition_service`
+
+**Purpose:** Document analysis and AI-powered processing
+
+**Responsibilities:**
+- Document classification
+- Entity extraction
+- Content analysis
+- AI-powered insights
+- Document relationships
+
+**Related Crates:**
+- `document_cognition_service_client`
+- `ai` - AI model integration
+- `ai_tools` - AI tooling
+- `anthropic` - Claude API client
+
+### Connection Gateway
+
+**Crate:** `connection_gateway`
+
+**Purpose:** WebSocket gateway for real-time communication
+
+**Responsibilities:**
+- WebSocket connection management
+- Real-time message routing
+- Presence tracking
+- Connection state management
+
+**Database:** DynamoDB for connection tracking
+
+**Integration:**
+- Routes messages from `comms_service`
+- Tracks active user connections
+- Handles connection lifecycle events
+
+### Contacts Service
+
+**Crate:** `contacts_service`
+
+**Purpose:** User contact and connection management
+
+**Responsibilities:**
+- Contact list management
+- Connection requests
+- Contact search
+- Contact synchronization
+
+**Database:** ContactsDB
+
+**Related Crates:**
+- `contacts_db_client` - Database layer
+- `email_contact_search` - Email-based contact discovery
+- `name_search` - Name-based search utilities
+
+## Service Patterns
+
+### Client Crates
+
+Most services provide a companion client crate for inter-service communication:
+
+```rust
+// Example: Using document_storage_service_client
+use document_storage_service_client::DocumentStorageClient;
+
+let client = DocumentStorageClient::new(base_url);
+let document = client.get_document(document_id).await?;
+```
+
+### Database Client Separation
+
+Each service's database access is isolated in a separate `*_db_client` crate:
+
+- Enables reuse across services
+- Centralizes SQL queries and migrations
+- Provides typed query results
+- Uses SQLx for compile-time validation
+
+### Lambda Integration
+
+Many services use Lambda functions for:
+
+- **Async processing** - Long-running operations off the critical path
+- **Event-driven workflows** - S3 triggers, scheduled tasks
+- **Scalability** - Auto-scaling for variable workloads
+
+Example Lambda functions:
+- `docx_unzip_handler` - Unzips DOCX files on upload
+- `document_text_extractor` - Extracts text from PDFs/documents
+- `delete_chat_handler` - Handles async chat deletion
+- `deleted_item_poller` - Polls for items to permanently delete
+
+### Service Communication Pattern
+
+```rust
+// Service A needs to call Service B
+use service_b_client::ServiceBClient;
+use axum::Extension;
+
+#[axum::debug_handler]
+async fn handler(
+    Extension(service_b): Extension<ServiceBClient>,
+) -> Result<impl IntoResponse> {
+    let result = service_b.call_operation().await?;
+    Ok(Json(result))
+}
+```
+
+## Service Dependencies
+
+Common dependencies across services:
+
+- `axum` - Web framework
+- `sqlx` - Database queries
+- `tokio` - Async runtime
+- `serde` - Serialization/deserialization
+- `anyhow` - Error handling
+- `tracing` - Observability
+- `utoipa` - OpenAPI documentation
+
+## Next Steps
+
+- [Database Architecture](/development/backend/database) - Learn about schema management
+- [API Design](/development/backend/api) - Understand API patterns
+- [Testing](/development/backend/testing) - Test your services

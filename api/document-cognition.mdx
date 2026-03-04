@@ -1,0 +1,538 @@
+---
+title: Document Cognition Service API
+description: AI-powered document analysis and chat interface for intelligent document processing
+---
+
+## Overview
+
+The Document Cognition Service provides AI-powered chat functionality and document analysis capabilities. It processes user queries with document context, supports multiple AI models, and enables intelligent conversations about documents.
+
+**Key Features:**
+- Stream-based AI chat responses
+- Document attachment analysis
+- Multi-model support (Claude, GPT)
+- Tool-augmented AI interactions
+- Real-time notification delivery
+
+**Architecture:**
+- RESTful HTTP API with streaming endpoints
+- WebSocket support via connection gateway
+- Asynchronous AI processing
+- Integration with search, email, and notification services
+
+---
+
+## Chat Management
+
+### Create Chat
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.macro.com/v1/chats \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Research Discussion",
+    "model": "claude-4-5-sonnet",
+    "projectId": "proj_123",
+    "attachments": [
+      {
+        "entityType": "document",
+        "entityId": "doc_456"
+      }
+    ],
+    "isPersistent": true
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.macro.com/v1/chats', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    name: 'Research Discussion',
+    model: 'claude-4-5-sonnet',
+    projectId: 'proj_123',
+    attachments: [{
+      entityType: 'document',
+      entityId: 'doc_456'
+    }],
+    isPersistent: true
+  })
+});
+
+const chat = await response.json();
+```
+</CodeGroup>
+
+<ParamField body="name" type="string" optional>
+  Display name for the chat session
+</ParamField>
+
+<ParamField body="model" type="string" optional>
+  AI model to use. Options: `claude-4-5-sonnet`, `claude-4-5-opus`, `gpt-4`
+</ParamField>
+
+<ParamField body="projectId" type="string" optional>
+  Project to associate this chat with
+</ParamField>
+
+<ParamField body="attachments" type="array" optional>
+  Document attachments to include in chat context
+</ParamField>
+
+<ParamField body="isPersistent" type="boolean" optional default="true">
+  Whether to save chat history
+</ParamField>
+
+<ResponseField name="chatId" type="string">
+  Unique identifier for the created chat
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Chat display name
+</ResponseField>
+
+<ResponseField name="model" type="string">
+  AI model configured for this chat
+</ResponseField>
+
+<ResponseField name="createdAt" type="timestamp">
+  Chat creation time
+</ResponseField>
+
+---
+
+### Get Chat
+
+Retrieve chat details and metadata.
+
+<CodeGroup>
+```bash cURL
+curl https://api.macro.com/v1/chats/chat_123 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.macro.com/v1/chats/chat_123', {
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+
+const chat = await response.json();
+```
+</CodeGroup>
+
+<ResponseField name="chatId" type="string">
+  Unique chat identifier
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Chat display name
+</ResponseField>
+
+<ResponseField name="model" type="string">
+  AI model for this chat
+</ResponseField>
+
+<ResponseField name="projectId" type="string" optional>
+  Associated project ID
+</ResponseField>
+
+<ResponseField name="attachments" type="array">
+  Documents attached to this chat
+</ResponseField>
+
+<ResponseField name="messageCount" type="integer">
+  Total number of messages in chat
+</ResponseField>
+
+---
+
+### Update Chat
+
+<CodeGroup>
+```bash cURL
+curl -X PATCH https://api.macro.com/v1/chats/chat_123 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Updated Chat Name",
+    "model": "claude-4-5-opus"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.macro.com/v1/chats/chat_123', {
+  method: 'PATCH',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    name: 'Updated Chat Name',
+    model: 'claude-4-5-opus'
+  })
+});
+```
+</CodeGroup>
+
+<ParamField body="name" type="string" optional>
+  New chat name
+</ParamField>
+
+<ParamField body="model" type="string" optional>
+  Switch AI model
+</ParamField>
+
+<ParamField body="projectId" type="string" optional>
+  Move chat to different project
+</ParamField>
+
+---
+
+### Delete Chat
+
+Soft-delete a chat (can be reverted).
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE https://api.macro.com/v1/chats/chat_123 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```javascript JavaScript
+await fetch('https://api.macro.com/v1/chats/chat_123', {
+  method: 'DELETE',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+```
+</CodeGroup>
+
+---
+
+## AI Chat Streaming
+
+### Send Chat Message
+
+Send a message and receive a streaming AI response. The response is delivered via the connection gateway WebSocket.
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.macro.com/v1/stream/chat/message \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "Summarize the key findings in this document",
+    "chatId": "chat_123",
+    "model": "claude-4-5-sonnet",
+    "attachments": [
+      {
+        "entityType": "document",
+        "entityId": "doc_456",
+        "name": "Research Report.pdf"
+      }
+    ],
+    "toolset": "all"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.macro.com/v1/stream/chat/message', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    content: 'Summarize the key findings in this document',
+    chatId: 'chat_123',
+    model: 'claude-4-5-sonnet',
+    attachments: [{
+      entityType: 'document',
+      entityId: 'doc_456',
+      name: 'Research Report.pdf'
+    }],
+    toolset: 'all'
+  })
+});
+
+const { streamId, messageId, chatId } = await response.json();
+
+// Subscribe to stream via WebSocket connection gateway
+// Stream messages will arrive at streamId
+```
+</CodeGroup>
+
+<ParamField body="content" type="string" required>
+  The user message content
+</ParamField>
+
+<ParamField body="chatId" type="string" optional>
+  Chat ID. If not provided, a new chat is created automatically
+</ParamField>
+
+<ParamField body="model" type="string" required>
+  AI model: `claude-4-5-sonnet`, `claude-4-5-opus`, `gpt-4-turbo`
+</ParamField>
+
+<ParamField body="additionalInstructions" type="string" optional>
+  Custom system instructions appended to the base prompt
+</ParamField>
+
+<ParamField body="attachments" type="array" optional>
+  Documents to include in the conversation context
+</ParamField>
+
+<ParamField body="toolset" type="string" optional default="all">
+  Tools available to AI: `all`, `search`, `email`, `none`
+</ParamField>
+
+<ResponseField name="streamId" type="string">
+  Stream identifier to subscribe to for receiving response chunks
+</ResponseField>
+
+<ResponseField name="messageId" type="string">
+  Unique ID for the AI response message
+</ResponseField>
+
+<ResponseField name="chatId" type="string">
+  The chat ID (may differ from request if a new chat was created)
+</ResponseField>
+
+**Stream Response Format:**
+
+The WebSocket stream delivers JSON messages with these event types:
+
+```json
+{
+  "type": "ChatUserMessage",
+  "streamId": "stream_123",
+  "chatId": "chat_123",
+  "messageId": "msg_456",
+  "content": "User's message",
+  "attachments": []
+}
+
+{
+  "type": "ChatMessageResponse",
+  "streamId": "stream_123",
+  "chatId": "chat_123",
+  "messageId": "msg_789",
+  "content": {
+    "Text": { "text": "AI response chunk" }
+  }
+}
+
+{
+  "type": "StreamEnd",
+  "streamId": "stream_123"
+}
+```
+
+---
+
+## Chat History
+
+### Get Chat History
+
+Retrieve message history for a chat.
+
+<CodeGroup>
+```bash cURL
+curl https://api.macro.com/v1/chats/history/chat_123?limit=50 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch(
+  'https://api.macro.com/v1/chats/history/chat_123?limit=50',
+  {
+    headers: {
+      'Authorization': 'Bearer YOUR_TOKEN'
+    }
+  }
+);
+
+const history = await response.json();
+```
+</CodeGroup>
+
+<ParamField query="limit" type="integer" optional default="20">
+  Maximum number of messages to return
+</ParamField>
+
+<ParamField query="before" type="string" optional>
+  Cursor for pagination - get messages before this ID
+</ParamField>
+
+<ResponseField name="messages" type="array">
+  Array of chat messages
+</ResponseField>
+
+<ResponseField name="messages[].messageId" type="string">
+  Unique message identifier
+</ResponseField>
+
+<ResponseField name="messages[].role" type="string">
+  Message role: `user` or `assistant`
+</ResponseField>
+
+<ResponseField name="messages[].content" type="string">
+  Message text content
+</ResponseField>
+
+<ResponseField name="messages[].createdAt" type="timestamp">
+  When the message was created
+</ResponseField>
+
+<ResponseField name="hasMore" type="boolean">
+  Whether more messages are available
+</ResponseField>
+
+---
+
+## Models
+
+### List Available Models
+
+Get list of supported AI models.
+
+<CodeGroup>
+```bash cURL
+curl https://api.macro.com/v1/models \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.macro.com/v1/models', {
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+
+const models = await response.json();
+```
+</CodeGroup>
+
+<ResponseField name="models" type="array">
+  Available AI models
+</ResponseField>
+
+<ResponseField name="models[].id" type="string">
+  Model identifier (e.g., `claude-4-5-sonnet`)
+</ResponseField>
+
+<ResponseField name="models[].name" type="string">
+  Human-readable model name
+</ResponseField>
+
+<ResponseField name="models[].contextWindow" type="integer">
+  Maximum context size in tokens
+</ResponseField>
+
+---
+
+## Document Attachments
+
+### Get Chats for Attachment
+
+Find all chats that reference a specific document.
+
+<CodeGroup>
+```bash cURL
+curl https://api.macro.com/v1/attachments/doc_123/chats \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch(
+  'https://api.macro.com/v1/attachments/doc_123/chats',
+  {
+    headers: {
+      'Authorization': 'Bearer YOUR_TOKEN'
+    }
+  }
+);
+
+const chats = await response.json();
+```
+</CodeGroup>
+
+<ResponseField name="chats" type="array">
+  Chats containing this attachment
+</ResponseField>
+
+<ResponseField name="chats[].chatId" type="string">
+  Chat identifier
+</ResponseField>
+
+<ResponseField name="chats[].name" type="string">
+  Chat name
+</ResponseField>
+
+<ResponseField name="chats[].lastMessageAt" type="timestamp">
+  Most recent message timestamp
+</ResponseField>
+
+---
+
+## Processing Patterns
+
+### Async AI Processing
+
+The Document Cognition Service uses asynchronous streaming for AI responses:
+
+1. **Initiate**: POST to `/stream/chat/message` returns `streamId`
+2. **Subscribe**: Connect to WebSocket with `streamId`
+3. **Stream**: Receive incremental response chunks
+4. **Complete**: Final `StreamEnd` event signals completion
+5. **Persist**: Messages saved to chat history
+
+### Tool Integration
+
+AI responses can invoke tools for enhanced capabilities:
+
+- **Search**: Query document search service
+- **Email**: Access email content and metadata  
+- **Scribe**: Document summarization
+- **Soup**: Web content extraction
+
+Tools execute during streaming and results are incorporated into AI responses.
+
+### Error Handling
+
+<ResponseField name="error" type="string">
+  Error message for stream failures
+</ResponseField>
+
+<ResponseField name="streamId" type="string" optional>
+  Associated stream ID if available
+</ResponseField>
+
+**Common errors:**
+
+- `ModelContextOverflow`: Message exceeds model's context window
+- `InternalError`: AI service failure
+- `Unauthorized`: Invalid or missing authentication
+- `Forbidden`: Insufficient permissions for chat access
+
+---
+
+## Rate Limits
+
+Chat endpoints are subject to user quota limits:
+
+- Message rate: Based on user plan
+- Context size: Model-dependent (see `/models`)
+- Concurrent streams: 5 per user
+
+Rate limit headers:
+- `X-RateLimit-Remaining`: Messages remaining in quota
+- `X-RateLimit-Reset`: Quota reset timestamp

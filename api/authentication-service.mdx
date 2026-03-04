@@ -1,0 +1,639 @@
+---
+title: "Authentication Service API"
+description: "API reference for the Authentication Service - user authentication, JWT tokens, OAuth, and session management"
+---
+
+## Overview
+
+The Authentication Service manages user authentication, authorization, and session management for Macro. It provides multiple authentication methods including password-based login, passwordless email links, OAuth (Google, Apple, GitHub), and SSO.
+
+**Base URL:** `/`
+
+**Authentication:** Most endpoints are public (login, signup). Protected endpoints require JWT authentication.
+
+## Core Concepts
+
+### Authentication Methods
+
+The service supports multiple authentication flows:
+- **Password login** - Traditional email/password
+- **Passwordless** - Magic link sent via email
+- **OAuth** - Google, Apple, GitHub
+- **SSO** - SAML-based enterprise SSO
+
+### JWT Tokens
+
+Authentication results in two tokens:
+- **Access Token** - Short-lived (1 hour), used for API requests
+- **Refresh Token** - Long-lived (30 days), used to obtain new access tokens
+
+Both are returned as HTTP-only cookies and in response body.
+
+### User Linking
+
+Users can link multiple authentication methods (e.g., password + Google) to the same account.
+
+---
+
+## Login
+
+### Password Login
+
+```http
+POST /login/password
+```
+
+Authenticates a user with email and password.
+
+<ParamField body="email" type="string" required>
+  User email address
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User password
+</ParamField>
+
+<ResponseField name="access_token" type="string">
+  JWT access token (1 hour expiry)
+</ResponseField>
+
+<ResponseField name="refresh_token" type="string">
+  JWT refresh token (30 day expiry)
+</ResponseField>
+
+<Note>
+Emails are automatically converted to lowercase. If the user exists but isn't registered in the tenant, they are automatically registered.
+</Note>
+
+<CodeGroup>
+```json Request
+{
+  "email": "user@example.com",
+  "password": "SecurePassword123!"
+}
+```
+
+```json Response
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+</CodeGroup>
+
+### Passwordless Login
+
+```http
+POST /login/passwordless
+```
+
+Sends a magic link to the user's email for passwordless authentication.
+
+<ParamField body="email" type="string" required>
+  User email address
+</ParamField>
+
+<ParamField body="redirect_url" type="string">
+  URL to redirect to after successful authentication
+</ParamField>
+
+<ResponseField name="status" type="string">
+  Status: `email_sent`
+</ResponseField>
+
+<Warning>
+This endpoint is rate-limited to prevent abuse. Maximum 3 requests per IP per 5 minutes.
+</Warning>
+
+<CodeGroup>
+```json Request
+{
+  "email": "user@example.com",
+  "redirect_url": "https://app.macro.com/dashboard"
+}
+```
+
+```json Response
+{
+  "status": "email_sent",
+  "message": "Check your email for the login link"
+}
+```
+</CodeGroup>
+
+### Apple Login
+
+```http
+POST /login/apple
+```
+
+Authenticates using Apple Sign In.
+
+<ParamField body="id_token" type="string" required>
+  Apple ID token from Sign in with Apple
+</ParamField>
+
+<ParamField body="authorization_code" type="string" required>
+  Apple authorization code
+</ParamField>
+
+### SSO Login
+
+```http
+GET /login/sso
+```
+
+Initiates SAML SSO login flow.
+
+<ParamField query="org_id" type="string" required>
+  Organization ID for SSO
+</ParamField>
+
+<ParamField query="redirect_url" type="string">
+  Post-login redirect URL
+</ParamField>
+
+---
+
+## OAuth
+
+### Google OAuth
+
+```http
+GET /oauth/google
+```
+
+Initiates Google OAuth flow. Redirects to Google's OAuth consent page.
+
+<ParamField query="redirect_url" type="string">
+  URL to return to after OAuth completes
+</ParamField>
+
+### Google OAuth Callback
+
+```http
+GET /oauth/google/callback
+```
+
+Handles the OAuth callback from Google (called automatically after user consent).
+
+<ParamField query="code" type="string" required>
+  Authorization code from Google
+</ParamField>
+
+<ParamField query="state" type="string" required>
+  State parameter for CSRF protection
+</ParamField>
+
+---
+
+## User Management
+
+### Create User
+
+```http
+POST /user
+```
+
+Creates a new user account.
+
+<ParamField body="email" type="string" required>
+  User email address
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User password (minimum 8 characters)
+</ParamField>
+
+<ParamField body="name" type="string">
+  User's full name
+</ParamField>
+
+<ResponseField name="user_id" type="string">
+  Created user ID
+</ResponseField>
+
+<ResponseField name="verification_email_sent" type="boolean">
+  Whether verification email was sent
+</ResponseField>
+
+### Get User Info
+
+```http
+GET /user/me
+```
+
+**Requires authentication**
+
+Retrieves information about the authenticated user.
+
+<ResponseField name="user_id" type="string">
+  User ID (format: `macro|email@example.com`)
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  User email
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  User's full name
+</ResponseField>
+
+<ResponseField name="email_verified" type="boolean">
+  Whether email is verified
+</ResponseField>
+
+<ResponseField name="organization_id" type="string">
+  Organization ID (if user is in an org)
+</ResponseField>
+
+<ResponseField name="created_at" type="datetime">
+  Account creation timestamp
+</ResponseField>
+
+### Update User Name
+
+```http
+PUT /user/name
+```
+
+**Requires authentication**
+
+Updates the user's display name.
+
+<ParamField body="name" type="string" required>
+  New display name
+</ParamField>
+
+### Get User Name
+
+```http
+GET /user/name
+```
+
+**Requires authentication**
+
+Retrieves the user's current display name.
+
+### Delete User
+
+```http
+DELETE /user/me
+```
+
+**Requires authentication**
+
+Deletes the user's account and all associated data.
+
+<Warning>
+This operation is irreversible. All user data including documents, emails, and messages will be permanently deleted.
+</Warning>
+
+### Get User Quota
+
+```http
+GET /user/quota
+```
+
+**Requires authentication**
+
+Retrieves the user's current usage quota and limits.
+
+<ResponseField name="documents" type="object">
+  Document quota (current count and limit)
+</ResponseField>
+
+<ResponseField name="storage_bytes" type="object">
+  Storage quota (current usage and limit)
+</ResponseField>
+
+<ResponseField name="api_calls" type="object">
+  API call quota for current period
+</ResponseField>
+
+### Update User Tutorial Status
+
+```http
+PATCH /user/tutorial
+```
+
+**Requires authentication**
+
+Marks tutorial steps as completed.
+
+<ParamField body="tutorial_step" type="string" required>
+  Tutorial step identifier
+</ParamField>
+
+<ParamField body="completed" type="boolean" required>
+  Whether the step is completed
+</ParamField>
+
+### Update AI Consent
+
+```http
+PATCH /user/ai_consent
+```
+
+**Requires authentication**
+
+Updates the user's AI feature consent preferences.
+
+<ParamField body="consented" type="boolean" required>
+  Whether user consents to AI features
+</ParamField>
+
+---
+
+## JWT & Session Management
+
+### Refresh Access Token
+
+```http
+POST /jwt/refresh
+```
+
+Exchanges a refresh token for a new access token.
+
+<ParamField body="refresh_token" type="string" required>
+  Current refresh token
+</ParamField>
+
+<ResponseField name="access_token" type="string">
+  New access token
+</ResponseField>
+
+<Note>
+The refresh token is also renewed and returned. Old tokens are invalidated.
+</Note>
+
+### Generate Macro API Token
+
+```http
+POST /jwt/macro_api_token
+```
+
+**Requires authentication**
+
+Generates a long-lived API token for programmatic access.
+
+<ResponseField name="api_token" type="string">
+  API token (valid for 1 year)
+</ResponseField>
+
+<ResponseField name="expires_at" type="datetime">
+  Token expiration time
+</ResponseField>
+
+### Logout
+
+```http
+POST /logout
+```
+
+**Requires authentication**
+
+Invalidates the current session and tokens.
+
+---
+
+## Account Linking
+
+### Create GitHub Link
+
+```http
+POST /link/github
+```
+
+**Requires authentication**
+
+Initiates GitHub account linking flow.
+
+<ParamField body="redirect_url" type="string">
+  URL to redirect after linking completes
+</ParamField>
+
+### Remove Account Link
+
+```http
+DELETE /link/{provider}
+```
+
+**Requires authentication**
+
+Removes a linked authentication provider.
+
+<ParamField path="provider" type="string" required>
+  Provider to unlink: `google`, `apple`, `github`
+</ParamField>
+
+### Check Link Exists
+
+```http
+GET /user/link_exists
+```
+
+**Requires authentication**
+
+Checks if user has linked a specific provider.
+
+<ParamField query="provider" type="string" required>
+  Provider to check: `google`, `apple`, `github`, `gmail`
+</ParamField>
+
+<ResponseField name="exists" type="boolean">
+  Whether the link exists
+</ResponseField>
+
+---
+
+## Permissions
+
+### Get User Permissions
+
+```http
+GET /permissions
+```
+
+**Requires authentication**
+
+Retrieves the user's permissions and feature flags.
+
+<ResponseField name="permissions" type="array">
+  Array of permission strings
+</ResponseField>
+
+<ResponseField name="features" type="object">
+  Feature flags and their enabled status
+</ResponseField>
+
+### Get Legacy User Permissions
+
+```http
+GET /user/legacy_user_permissions
+```
+
+**Requires authentication**
+
+Retrieves user permissions in legacy format (for backwards compatibility).
+
+---
+
+## Teams & Organizations
+
+### Get User Organization
+
+```http
+GET /user/organization
+```
+
+**Requires authentication**
+
+Retrieves information about the user's organization.
+
+<ResponseField name="id" type="string">
+  Organization ID
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Organization name
+</ResponseField>
+
+<ResponseField name="role" type="string">
+  User's role in the organization
+</ResponseField>
+
+### Update User Group
+
+```http
+PATCH /user/group
+```
+
+**Requires authentication**
+
+Updates the user's group membership within their organization.
+
+<ParamField body="group_id" type="string" required>
+  New group ID
+</ParamField>
+
+---
+
+## Error Codes
+
+### Common Errors
+
+- `200` - Success
+- `201` - Created
+- `400` - Bad Request (invalid email, weak password)
+- `401` - Unauthorized (invalid credentials)
+- `403` - Forbidden (email not verified, account locked)
+- `404` - User not found
+- `429` - Too Many Requests (rate limited)
+- `500` - Internal Server Error
+
+### Service-Specific Error Codes
+
+<ResponseField name="message" type="string">
+  Human-readable error description
+</ResponseField>
+
+**Authentication Errors:**
+
+- `INVALID_CREDENTIALS` - Email/password combination is incorrect
+- `EMAIL_NOT_VERIFIED` - User hasn't verified their email address
+- `ACCOUNT_LOCKED` - Account has been locked due to security concerns
+- `TOKEN_EXPIRED` - JWT token has expired
+- `TOKEN_INVALID` - JWT token is malformed or invalid
+- `RATE_LIMIT_EXCEEDED` - Too many login attempts
+
+**Registration Errors:**
+
+- `EMAIL_IN_USE` - Email already registered
+- `WEAK_PASSWORD` - Password doesn't meet complexity requirements
+- `INVALID_EMAIL` - Email format is invalid
+
+<CodeGroup>
+```json Error Response - Invalid Credentials
+{
+  "message": "unable to login user"
+}
+```
+
+```json Error Response - Email Not Verified
+{
+  "message": "user has not verified their primary email"
+}
+```
+
+```json Error Response - Invalid Email
+{
+  "message": "invalid email"
+}
+```
+</CodeGroup>
+
+---
+
+## Data Models
+
+### User
+
+```typescript
+interface User {
+  user_id: string;              // Format: "macro|email@example.com"
+  email: string;
+  name?: string;
+  email_verified: boolean;
+  organization_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+```
+
+### User Tokens Response
+
+```typescript
+interface UserTokensResponse {
+  access_token: string;         // JWT, 1 hour expiry
+  refresh_token: string;        // JWT, 30 day expiry
+}
+```
+
+### User Quota
+
+```typescript
+interface UserQuota {
+  documents: QuotaInfo;
+  storage_bytes: QuotaInfo;
+  api_calls: QuotaInfo;
+}
+
+interface QuotaInfo {
+  current: number;
+  limit: number;
+  reset_at?: string;            // For time-based quotas
+}
+```
+
+### Permissions
+
+```typescript
+interface UserPermissions {
+  permissions: string[];        // e.g., ["read:documents", "write:documents"]
+  features: {
+    [key: string]: boolean;     // Feature flag map
+  };
+}
+```
+
+### Organization
+
+```typescript
+interface Organization {
+  id: string;
+  name: string;
+  created_at: string;
+  subscription_tier: "free" | "pro" | "enterprise";
+}
+```

@@ -1,0 +1,292 @@
+---
+title: SolidJS Patterns
+description: Code styles, reactive patterns, and conventions for SolidJS development
+---
+
+Macro follows specific patterns and conventions for writing SolidJS code to ensure consistency, performance, and maintainability.
+
+## Code Style Principles
+
+From `AGENTS.md`:
+
+1. **Follow existing code styles** - Check neighboring files for patterns
+2. **Composability** - Write small, testable, pure functions when possible
+3. **Simplicity** - Prioritize the simplest correct solution over complexity
+4. **Decoupling** - Decouple pure business logic from UI and network layers
+5. **Type-driven design** - Let types guide function composition. **DO NOT USE `any`**
+
+## Deprecated Patterns
+
+### Avoid blockSignals
+
+**Do NOT use these deprecated APIs:**
+
+```typescript
+// ❌ DEPRECATED - Do not use
+blockSignals
+blockMemos
+blockResources
+```
+
+These were early abstractions that have been replaced with standard SolidJS primitives.
+
+## Component Patterns
+
+### Pure, Composable Components
+
+Primitive UI components should be **pure** and prefer **composition over props**:
+
+```tsx
+// ✅ Good - Composition with children
+import { type ParentComponent } from 'solid-js';
+
+const Container: ParentComponent = (props) => {
+  return (
+    <div class="container">
+      {props.children}
+    </div>
+  );
+};
+
+// Usage
+<Container>
+  <Header />
+  <Content />
+</Container>
+```
+
+```tsx
+// ❌ Avoid - Complex global state in primitives
+const Container = () => {
+  const globalState = useComplexContext();
+  // Don't couple primitives to global state
+};
+```
+
+### Example: Button Component
+
+From `packages/ui/components/Button.tsx`:
+
+```tsx
+type ButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: 'primary' | 'secondary' | 'tertiary' | 'destructive';
+  tooltip?: JSX.Element;
+  showChevron?: boolean;
+};
+
+export const Button: ParentComponent<ButtonProps> = (props) => {
+  const [local, buttonAttributes] = splitProps(props, [
+    'variant',
+    'class',
+    'children',
+    'tooltip',
+  ]);
+
+  return (
+    <button
+      type={local.type ?? 'button'}
+      class={cn(
+        'relative flex items-center justify-center gap-[1ch]',
+        'font-mono font-medium uppercase',
+        {
+          'bg-ink text-panel': 'primary' === local.variant,
+          'border-ink': 'secondary' === local.variant,
+        },
+        local.class
+      )}
+      {...buttonAttributes}
+    >
+      {local.children}
+    </button>
+  );
+};
+```
+
+**Key patterns:**
+- Use `splitProps` to separate custom props from native attributes
+- Merge classes with `cn()` utility (tailwind-merge)
+- Accept `children` for composition
+- Type-safe prop definitions
+
+## Reactive Patterns
+
+### Check solid-primitives First
+
+**Always check if a sufficient `solid-primitive` exists before implementing custom utilities:**
+
+Macro uses several primitives from [@solid-primitives](https://github.com/solidjs-community/solid-primitives):
+
+```typescript
+import { createCallback } from '@solid-primitives/rootless';
+import { createEventBus } from '@solid-primitives/event-bus';
+import { createResizeObserver } from '@solid-primitives/resize-observer';
+import { createDeepSignal } from '@solid-primitives/deep';
+```
+
+Installed primitives (from `package.json`):
+- `@solid-primitives/audio`
+- `@solid-primitives/broadcast-channel`
+- `@solid-primitives/context`
+- `@solid-primitives/deep`
+- `@solid-primitives/event-bus`
+- `@solid-primitives/event-listener`
+- `@solid-primitives/lifecycle`
+- `@solid-primitives/mutation-observer`
+- `@solid-primitives/platform`
+- `@solid-primitives/promise`
+- `@solid-primitives/resize-observer`
+- `@solid-primitives/resource`
+- `@solid-primitives/rootless`
+- `@solid-primitives/scheduled`
+- `@solid-primitives/storage`
+
+### Signals and Stores
+
+Example from `packages/block-md/signal/markdownBlockData.ts`:
+
+```typescript
+import { createBlockStore } from '@core/block';
+import { createCallback } from '@solid-primitives/rootless';
+import type { Store } from 'solid-js/store';
+
+type MdData = {
+  editor?: LexicalEditor;
+  titleEditor?: LexicalEditor;
+  notebook?: HTMLElement;
+  scrollContainer?: HTMLElement;
+};
+
+export const mdStore = createBlockStore<MdData>({});
+
+export const useIsTask = createCallback(() => {
+  return () => blockDataSignal()?.documentMetadata.subType === 'task';
+});
+```
+
+**Pattern notes:**
+- Use `createStore` from `solid-js/store` for nested reactive objects
+- Use `createSignal` for primitive values
+- Use `createMemo` for derived values
+- Use `createCallback` from solid-primitives for stable callbacks
+
+### Effects and Lifecycle
+
+```typescript
+import { createEffect, onMount, onCleanup } from 'solid-js';
+
+const Component = () => {
+  // Run once on mount
+  onMount(() => {
+    console.log('Component mounted');
+  });
+
+  // Run when dependencies change
+  createEffect(() => {
+    const el = scrollRef();
+    if (el) {
+      mdStore.set({ scrollContainer: el });
+    }
+  });
+
+  // Cleanup on unmount
+  onCleanup(() => {
+    console.log('Component unmounting');
+  });
+};
+```
+
+## Styling Conventions
+
+### Use Semantic Color Tokens
+
+**Use semantic color tokens instead of default Tailwind colors:**
+
+```tsx
+// ✅ Good - Semantic tokens
+<div class="bg-panel text-ink border-accent" />
+
+// ❌ Avoid - Direct Tailwind colors
+<div class="bg-gray-100 text-black border-blue-500" />
+```
+
+Semantic tokens adapt to themes and maintain consistency.
+
+### Tailwind Utilities
+
+Macro uses Tailwind v4 with custom configuration:
+
+```tsx
+import { cn } from '@ui/utils/classname';
+
+// Merge classes properly
+<button class={cn(
+  'base-styles',
+  isActive && 'active-styles',
+  props.class  // User overrides
+)} />
+```
+
+## Pattern Matching
+
+### Use ts-pattern for Exhaustive Switches
+
+**For exhaustive switch statements, use `match` from `ts-pattern`:**
+
+```typescript
+import { match } from 'ts-pattern';
+
+const result = match(type)
+  .with('markdown', () => <MarkdownBlock />)
+  .with('pdf', () => <PdfBlock />)
+  .with('canvas', () => <CanvasBlock />)
+  .exhaustive(); // TypeScript ensures all cases covered
+```
+
+**Benefits:**
+- Type-safe exhaustiveness checking
+- Pattern matching with guards
+- Better than traditional switch statements
+
+## Network Layer
+
+### Use Tanstack Query for All API Calls
+
+**All network calls to service clients MUST go through Tanstack Query in the `queries` package.**
+
+```typescript
+// ✅ Good - Use queries package
+import { useInstructionsMdIdQuery } from '@queries/storage/instructions-md';
+
+const Component = () => {
+  const instructionsMdId = useInstructionsMdIdQuery();
+  
+  return <div>{instructionsMdId.data}</div>;
+};
+```
+
+```typescript
+// ❌ NEVER - Direct client calls outside queries package
+import { storageClient } from '@service-clients/service-storage';
+
+const Component = () => {
+  // DO NOT call service clients directly!
+  const data = await storageClient.getInstructions();
+};
+```
+
+**Why:**
+- Centralized caching and invalidation
+- Consistent error handling
+- Request deduplication
+- Offline support via persistence
+
+## Testing Patterns
+
+See [Testing](/development/frontend/testing) for detailed testing practices.
+
+## Related Resources
+
+- [Component Structure](/development/frontend/components)
+- [Lexical Editor](/development/frontend/editor)
+- [SolidJS Documentation](https://www.solidjs.com/)
+- [solid-primitives Library](https://github.com/solidjs-community/solid-primitives)

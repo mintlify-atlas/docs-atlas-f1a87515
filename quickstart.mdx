@@ -1,80 +1,187 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get started with Macro in minutes
 ---
 
-## Get started in three steps
+Get up and running with Macro by creating your first document, sending messages, and exploring the unified workspace.
 
-Get your documentation site running locally and make your first customization.
+## Account Setup
 
-### Step 1: Set up your local environment
+<Steps>
+  <Step title="Create your account">
+    Visit [macro.com](https://macro.com) and sign up with your email address or Google account.
+  </Step>
+  
+  <Step title="Set up your workspace">
+    Choose your workspace name and customize your profile settings.
+  </Step>
+  
+  <Step title="Invite team members (optional)">
+    Add colleagues to your workspace by entering their email addresses. They'll receive an invitation to join.
+  </Step>
+</Steps>
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+## Create Your First Document
+
+<Steps>
+  <Step title="Open the command menu">
+    Press `Cmd+K` (Mac) or `Ctrl+K` (Windows/Linux) to open the command menu.
+  </Step>
+  
+  <Step title="Create a new document">
+    Type "new document" or press `Cmd+N` and select **Document**.
+  </Step>
+  
+  <Step title="Start writing with @links">
+    Begin typing your content. Use `@` to mention:
+    - Team members (`@username`)
+    - Other documents (`@document name`)
+    - Tasks, emails, or files
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    When you @mention content, Macro automatically creates bidirectional links and manages permissions.
+  </Step>
+</Steps>
 
-### Step 2: Deploy your changes
+### Example Document
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+Try creating a project plan:
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+```markdown
+# Q1 Project Plan
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+## Overview
+This document outlines our goals for Q1. Related tasks are tracked in @Q1 Tasks.
 
-### Step 3: Go live
+## Key Stakeholders
+- @alice - Project Lead
+- @bob - Engineering
+- @charlie - Design
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+## Resources
+See the design files in @Design Assets folder.
+```
 
-## Next steps
+<Info>
+All @mentions create two-way links. Click any mention to navigate, and see backlinks to find what references this document.
+</Info>
 
-Now that you have your docs running, explore these key features:
+## Send Your First Message
 
-<CardGroup cols={2}>
+<Steps>
+  <Step title="Create or join a channel">
+    Press `Cmd+K` and type "new channel" to create a team channel, or browse existing channels in the sidebar.
+  </Step>
+  
+  <Step title="Compose a message">
+    Click in the message field or press `C` to start composing.
+  </Step>
+  
+  <Step title="Use rich formatting and @links">
+    - Format text with markdown (`**bold**`, `*italic*`, `` `code` ``)
+    - @mention team members to notify them
+    - @mention documents to share context
+    - Add files by dragging or clicking the attachment icon
+  </Step>
+</Steps>
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+### Example Message
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+```markdown
+Hey team! 👋
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
+I've created our project plan in @Q1 Project Plan. 
+Please review and add your feedback in the comments.
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+cc @alice @bob
+```
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+When you @mention a document in a channel, everyone in that channel automatically gets access to it.
 </Note>
+
+## Search Across Everything
+
+Macro's unified search lets you find anything across emails, messages, documents, tasks, and files.
+
+<Tabs>
+  <Tab title="Basic Search">
+    Press `Cmd+K` and start typing to search everything.
+    
+    ```
+    quarterly review
+    ```
+  </Tab>
+  
+  <Tab title="Type Filters">
+    Filter by content type:
+    
+    ```
+    type:email quarterly review
+    type:doc project plan
+    type:task priority:high
+    type:file budget.xlsx
+    ```
+  </Tab>
+  
+  <Tab title="Date Filters">
+    Find content from specific time periods:
+    
+    ```
+    type:email from:[1 week]
+    type:doc updated:[today]
+    type:task due:[next week]
+    ```
+  </Tab>
+  
+  <Tab title="Combined Queries">
+    Combine multiple filters:
+    
+    ```
+    type:email inbox:true from:[3 days] has:attachment
+    type:doc author:alice updated:[1 month]
+    type:task assignee:me status:open due:[2 weeks]
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+Press `Cmd+K` from anywhere to search. The search bar is context-aware and will suggest filters based on what you're viewing.
+</Tip>
+
+## Essential Keyboard Shortcuts
+
+Macro is keyboard-first. Here are the most important shortcuts to get started:
+
+| Shortcut | Action |
+|----------|--------|
+| `Cmd+K` | Command menu / Search |
+| `Cmd+N` | New document |
+| `C` | Compose message (in channel) |
+| `E` | Archive email |
+| `R` | Reply to email |
+| `F` | Forward email |
+| `Cmd+/` | Show all shortcuts |
+
+<Info>
+All shortcuts are customizable. Press `Cmd+/` to see the full list and configure your own.
+</Info>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Explore Features" icon="sparkles" href="/features/email">
+    Learn about email, messaging, canvas, AI chat, and more
+  </Card>
+  
+  <Card title="Keyboard Shortcuts" icon="keyboard" href="/guide/keyboard-shortcuts">
+    Master keyboard navigation for maximum productivity
+  </Card>
+  
+  <Card title="Permissions Guide" icon="shield-check" href="/guide/permissions">
+    Understand how permissions work with channels and @links
+  </Card>
+  
+  <Card title="Developer Setup" icon="code" href="/installation">
+    Set up your local development environment
+  </Card>
+</CardGroup>

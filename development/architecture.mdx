@@ -1,0 +1,206 @@
+---
+title: 'System Architecture'
+description: 'Overview of Macro microservices architecture, data storage, and service communication'
+---
+
+## Architecture Overview
+
+Macro is built as a Rust-based cloud storage microservices architecture using a Cargo workspace with 80+ crates. The system handles document storage, processing, search, communication, and email functionality with a SolidJS frontend and Pulumi-managed AWS infrastructure.
+
+## Core Services
+
+The backend is organized into several categories of microservices:
+
+<CardGroup cols={2}>
+  <Card title="Document Storage" icon="database">
+    - `document-storage-service`: Main document storage API
+    - `document-cognition-service`: Document analysis and processing
+    - `search_service`: Search functionality across documents
+    - `static_file_service`: Static file serving
+  </Card>
+
+  <Card title="Processing Services" icon="gear">
+    - `convert_service`: Document format conversion
+    - `document-text-extractor`: Text extraction from documents
+    - `search_processing_service`: Search indexing and processing
+  </Card>
+
+  <Card title="Communication" icon="messages">
+    - `comms_service`: Internal communication handling
+    - `email_service`: Email processing and management
+    - `notification_service`: User notifications
+  </Card>
+
+  <Card title="Infrastructure" icon="server">
+    - `authentication_service`: User authentication
+    - `connection_gateway`: WebSocket gateway
+    - `contacts_service`: Contact management
+  </Card>
+</CardGroup>
+
+## Data Storage
+
+Macro uses a polyglot persistence approach with multiple specialized databases:
+
+### PostgreSQL Databases
+
+**MacroDB** - Main database containing:
+- Documents, users, and projects
+- Communication data (messages, channels, participants)
+- Email threads, messages, and metadata
+- Notification preferences and history
+
+**ContactsDB** - Dedicated database for:
+- User connections and contacts
+- Contact management
+
+### External Storage
+
+<CardGroup cols={2}>
+  <Card title="Amazon S3" icon="aws">
+    File storage for documents, email attachments, and static files across multiple buckets:
+    - `doc-storage`: Document files
+    - `macro-email-attachments`: Email attachments
+    - `static-file-storage`: Static files
+    - `docx-upload`: DOCX processing
+    - `bulk-upload-staging`: Bulk uploads
+  </Card>
+
+  <Card title="Redis" icon="database">
+    - Session management
+    - Caching layer
+    - Real-time data
+  </Card>
+
+  <Card title="OpenSearch" icon="magnifying-glass">
+    - Full-text search indexing
+    - Document content search
+    - Search query processing
+  </Card>
+
+  <Card title="DynamoDB" icon="table">
+    - Connection tracking (`connection-gateway-table`)
+    - Bulk upload metadata (`bulk-upload`)
+    - Static file metadata (`static-file-metadata`)
+  </Card>
+</CardGroup>
+
+## Service Communication
+
+Services communicate through multiple patterns:
+
+### HTTP APIs
+- Internal service-to-service calls
+- RESTful APIs for client communication
+- Service client crates for type-safe communication
+
+### Asynchronous Processing
+- **SQS Queues** for async task processing:
+  - `notification-queue`: User notifications
+  - `search-event-queue`: Search indexing events
+  - `email-service-gmail-inbox-sync-queue`: Gmail synchronization
+  - `convert-service-queue`: Document conversion
+  - `document-text-extractor-lambda-queue`: Text extraction
+
+### Event-Driven Processing
+- **AWS Lambda** triggers for serverless processing
+- S3 event notifications for file uploads
+- Scheduled Lambda functions for background tasks
+
+### WebSocket Connections
+- Real-time updates via `connection_gateway`
+- Connection state tracked in DynamoDB
+
+## Document Processing Pipeline
+
+Documents flow through a sophisticated processing pipeline:
+
+```mermaid
+graph LR
+    A[Upload] --> B[Text Extraction]
+    B --> C[Search Indexing]
+    C --> D[Storage]
+    D --> E[Retrieval]
+```
+
+<Steps>
+  <Step title="Upload">
+    Files uploaded to S3 buckets, triggering event notifications
+  </Step>
+  
+  <Step title="Text Extraction">
+    - DOCX files unzipped via Lambda
+    - PDFs processed with pdfium library
+    - Text content extracted for indexing
+  </Step>
+  
+  <Step title="Search Indexing">
+    Extracted text indexed in OpenSearch via `search_processing_service`
+  </Step>
+  
+  <Step title="Storage">
+    - File content in S3
+    - Metadata stored in MacroDB PostgreSQL
+    - Search index in OpenSearch
+  </Step>
+  
+  <Step title="Retrieval">
+    Documents served via `document-storage-service` and `static_file_service`
+  </Step>
+</Steps>
+
+## Database Architecture
+
+Each service maintains clean database boundaries:
+
+- **Dedicated client crates**: `macro_db_client`, `comms_db_client`, `contacts_db_client`
+- **SQLx for interactions**: Compile-time query validation with offline mode
+- **Prisma schema**: Located at `macro-api/database/schema.prisma`
+- **Migration management**: Per-service migration handling
+
+### Schema Management
+
+<Note>
+  Database columns in the Prisma schema use camelCase, but must be cast to snake_case when reading:
+  
+  ```sql
+  SELECT "userId" as "user_id" FROM "UserInsights"
+  ```
+</Note>
+
+## AWS Integration
+
+Heavy integration with AWS services:
+
+- **S3**: File and document storage
+- **Lambda**: Serverless processing (text extraction, document conversion)
+- **SQS**: Message queuing for async processing
+- **DynamoDB**: Connection and metadata tracking
+- **OpenSearch**: Search capabilities
+
+## Infrastructure as Code
+
+All infrastructure is managed using **Pulumi** with TypeScript:
+
+- Deployment stacks in `infra/stacks/`
+- Lambda function configurations in `infra/lambda/`
+- Reusable AWS resource definitions in `infra/resources/`
+
+## Development Architecture
+
+### Offline Development
+
+The project uses `SQLX_OFFLINE=true` for building without live database connections:
+- Database queries are pre-validated
+- Query metadata cached in `.sqlx/` directory
+- Enables CI/CD without database dependencies
+
+### Testing Architecture
+
+Test each service independently:
+
+```bash
+cargo test -p {service_name}
+```
+
+Tests use fixtures and require database setup for integration testing.

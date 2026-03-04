@@ -1,0 +1,423 @@
+---
+title: Frontend Testing
+description: Test setup, practices, and authentication for frontend development
+---
+
+Macro uses Vitest for unit tests and Playwright for end-to-end testing.
+
+## Test Commands
+
+From `package.json` and `AGENTS.md`:
+
+```bash
+# Run all tests
+bun run test
+
+# Run specific test file
+bun run test -- packages/core/tests/date.test.ts -c packages/core
+
+# Run tests in watch mode
+bun run test -- --watch
+
+# Run with UI
+bunx vitest --ui
+```
+
+## Unit Testing
+
+### Test Setup
+
+Macro uses **Vitest** with SolidJS testing library:
+
+```typescript
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { render } from '@solidjs/testing-library';
+import '@testing-library/jest-dom';
+```
+
+### Example Test
+
+From `packages/core/tests/date.test.ts`:
+
+```typescript
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { formatDate } from '../util/date';
+
+const mockNow: Date = new Date('2025-06-14T14:15:00.000Z');
+const NEW_YORK_TZ = 'America/New_York';
+
+describe('Date Utilities (core/utils/date.ts)', () => {
+  beforeEach(() => {
+    // default system time to UTC
+    process.env.TZ = 'UTC';
+    vi.setSystemTime(mockNow);
+  });
+
+  describe('formatDate', () => {
+    it('should show only time at Date.now()', () => {
+      const now = new Date();
+      const result = formatDate(now);
+      expect(result).toMatch(/\d{1,2}:\d{2}\s?(AM|PM)/i);
+    });
+
+    it('should show correct time for now with default UTC system time', () => {
+      const result = formatDate(mockNow);
+      expect(result).toMatch('2:15 PM');
+    });
+
+    it('should accept ISO string input', () => {
+      const result = formatDate('2025-06-14T14:15:00.000Z');
+      expect(result).toMatch('2:15 PM');
+    });
+  });
+});
+```
+
+### Testing Patterns
+
+**Pure Functions**
+```typescript
+import { compareDateAsc } from '../util/date';
+
+it('should sort older dates first', () => {
+  const older = new Date('2025-01-01');
+  const newer = new Date('2025-12-31');
+  
+  expect(compareDateAsc(older, newer)).toBeLessThan(0);
+  expect(compareDateAsc(newer, older)).toBeGreaterThan(0);
+});
+```
+
+**SolidJS Components**
+```typescript
+import { render, screen } from '@solidjs/testing-library';
+import { Button } from './Button';
+
+it('renders button with text', () => {
+  render(() => <Button>Click me</Button>);
+  expect(screen.getByText('Click me')).toBeInTheDocument();
+});
+
+it('calls onClick when clicked', async () => {
+  const onClick = vi.fn();
+  render(() => <Button onClick={onClick}>Click</Button>);
+  
+  const button = screen.getByText('Click');
+  await userEvent.click(button);
+  
+  expect(onClick).toHaveBeenCalledTimes(1);
+});
+```
+
+**Async State**
+```typescript
+import { waitFor } from '@solidjs/testing-library';
+
+it('loads data asynchronously', async () => {
+  render(() => <DataComponent />);
+  
+  expect(screen.getByText('Loading...')).toBeInTheDocument();
+  
+  await waitFor(() => {
+    expect(screen.getByText('Data loaded')).toBeInTheDocument();
+  });
+});
+```
+
+## End-to-End Testing
+
+### Playwright Setup
+
+Macro uses **Playwright** for E2E tests:
+
+```typescript
+import { test, expect } from '@playwright/test';
+```
+
+Installed via:
+```bash
+bun add -D @playwright/test
+```
+
+### Playwright Authentication
+
+The app uses **cookie-based authentication** with `credentials: 'include'`. For Playwright testing, you must intercept requests and add the Authorization header.
+
+#### Authentication Steps
+
+From `AGENTS.md`:
+
+**1. Generate Access Token**
+
+Requires `.env` file with:
+```bash
+REFRESH_TOKEN=your_refresh_token_here
+FUSIONAUTH_DOMAIN=auth.dev.macro.com
+```
+
+Run:
+```bash
+bun scripts/generate-access-token.ts
+```
+
+Copy the generated token.
+
+**2. Set Up Request Interception**
+
+Before navigating, intercept API requests:
+
+```typescript
+import { test } from '@playwright/test';
+
+test('authenticated test', async ({ page }) => {
+  const token = 'YOUR_ACCESS_TOKEN_HERE';
+
+  // Set up interception BEFORE navigating
+  await page.route('**/*.macro.com/**', async (route) => {
+    const headers = {
+      ...route.request().headers(),
+      'Authorization': `Bearer ${token}`,
+    };
+    await route.continue({ headers });
+  });
+
+  // Now navigate
+  await page.goto('http://localhost:3000/app/component/unified-list');
+});
+```
+
+**3. Handle Initial Redirect**
+
+The first navigation may redirect to `/signup` before auth kicks in. Force navigate again:
+
+```typescript
+test('authenticated test', async ({ page }) => {
+  const token = 'YOUR_ACCESS_TOKEN';
+
+  await page.route('**/*.macro.com/**', async (route) => {
+    const headers = {
+      ...route.request().headers(),
+      'Authorization': `Bearer ${token}`,
+    };
+    await route.continue({ headers });
+  });
+
+  // First navigation (may redirect)
+  await page.goto('http://localhost:3000/app/component/unified-list');
+
+  // Force navigate again - auth now works
+  await page.goto('http://localhost:3000/app/component/unified-list', {
+    waitUntil: 'domcontentloaded',
+  });
+
+  // Now authenticated!
+  await expect(page).toHaveURL(/\/app\/component/);
+});
+```
+
+**Why this is needed:**
+
+From the docs:
+> The app checks authentication via API calls to `.macro.com` endpoints using `credentials: 'include'`. Without valid cookies or an auth header, `useIsAuthenticated()` returns false and the `Soup` component redirects to `/` → `/signup`. The initial redirect happens before route interception can authenticate the first requests, but forcing a second navigation resolves this.
+
+**WebSocket Limitation:**
+> WebSocket connections (for real-time features) won't be authenticated with this approach since Playwright's route interception only works for HTTP/HTTPS. This is fine for most UI testing scenarios.
+
+### Playwright Testing Patterns
+
+**Navigation**
+```typescript
+import { test, expect } from '@playwright/test';
+
+test('navigates to page', async ({ page }) => {
+  await page.goto('http://localhost:3000/app/component/unified-list');
+  await expect(page).toHaveURL(/\/app\/component/);
+});
+```
+
+**Interaction**
+```typescript
+test('clicks button', async ({ page }) => {
+  await page.click('button:has-text("Save")');
+  await expect(page.locator('.success-message')).toBeVisible();
+});
+```
+
+**Form Input**
+```typescript
+test('fills form', async ({ page }) => {
+  await page.fill('input[name="title"]', 'New Document');
+  await page.click('button[type="submit"]');
+  await expect(page.locator('h1')).toHaveText('New Document');
+});
+```
+
+**Wait for Network**
+```typescript
+test('waits for API response', async ({ page }) => {
+  await page.waitForResponse(
+    (response) => response.url().includes('/api/documents') && response.status() === 200
+  );
+});
+```
+
+## Testing Principles
+
+From `AGENTS.md`:
+
+### Write Tests for Changes
+
+> **Testing** - Write tests for your changes. When fixing bugs or regressions, identify the issue with a test before fixing it.
+
+**Workflow:**
+1. Write failing test that reproduces bug
+2. Fix the bug
+3. Verify test passes
+4. Commit both test and fix
+
+### Incremental Testing
+
+> Write and run tests incrementally for business logic using `bun run test`.
+
+**Pattern:**
+1. Write pure function
+2. Write test immediately
+3. Run test: `bun run test -- path/to/file.test.ts`
+4. Iterate until passing
+5. Move to next function
+
+### Test Pure Logic
+
+> **Decoupling** - Decouple pure business logic from UI and network layer.
+
+Test business logic separately from UI:
+
+```typescript
+// ✅ Good - Pure, testable function
+export function calculateTotal(items: Item[]): number {
+  return items.reduce((sum, item) => sum + item.price, 0);
+}
+
+// Test
+it('calculates total', () => {
+  const items = [{ price: 10 }, { price: 20 }];
+  expect(calculateTotal(items)).toBe(30);
+});
+```
+
+```typescript
+// ❌ Avoid - Coupled to UI
+const Component = () => {
+  const total = items().reduce((sum, item) => sum + item.price, 0);
+  // Hard to test
+};
+```
+
+## Debugging Tests
+
+### Console Debugging
+
+From `AGENTS.md`:
+
+> You can use `console.trace` to debug state and changes in the ui and logic.
+
+```typescript
+import { createEffect } from 'solid-js';
+
+const Component = () => {
+  const [value, setValue] = createSignal(0);
+
+  createEffect(() => {
+    console.trace('Value changed:', value());
+  });
+};
+```
+
+### Playwright Debugging
+
+```bash
+# Run with headed browser
+bunx playwright test --headed
+
+# Run with debug mode
+bunx playwright test --debug
+
+# Run specific test
+bunx playwright test path/to/test.spec.ts
+```
+
+### Vitest UI
+
+```bash
+bunx vitest --ui
+```
+
+Opens interactive test UI at `http://localhost:51204/__vitest__/`.
+
+## Test Organization
+
+### File Naming
+
+```
+packages/
+├── core/
+│   ├── util/
+│   │   └── date.ts
+│   └── tests/
+│       └── date.test.ts          # Unit tests
+└── app/
+    └── component/
+        └── next-soup/
+            ├── create-sort-state.ts
+            └── create-sort-state.test.ts  # Co-located tests
+```
+
+**Patterns:**
+- Use `.test.ts` or `.test.tsx` suffix
+- Co-locate tests with code when possible
+- Use `tests/` directory for integration tests
+
+### Test Structure
+
+```typescript
+describe('Feature Name', () => {
+  beforeEach(() => {
+    // Setup
+  });
+
+  describe('specific behavior', () => {
+    it('does something', () => {
+      // Test
+    });
+
+    it('handles edge case', () => {
+      // Test
+    });
+  });
+});
+```
+
+## CI/CD Integration
+
+Tests run in CI pipeline:
+
+```bash
+# Type checking
+bun run check
+
+# Linting
+bun run lint
+
+# Tests
+bun run test
+```
+
+Ensure all pass before merging.
+
+## Related Resources
+
+- [Frontend Overview](/development/frontend/overview)
+- [SolidJS Patterns](/development/frontend/solidjs)
+- [Vitest Documentation](https://vitest.dev/)
+- [Playwright Documentation](https://playwright.dev/)
+- [SolidJS Testing Library](https://github.com/solidjs/solid-testing-library)

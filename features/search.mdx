@@ -1,0 +1,309 @@
+---
+title: Search
+description: Unified search across emails, messages, documents, tasks, and files
+---
+
+Macro's unified search lets you find anything across your entire workspace - emails, messages, documents, tasks, files, and more - all from one search interface.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Unified Results" icon="magnifying-glass">
+    Search across all content types in a single query
+  </Card>
+  <Card title="Advanced Filters" icon="filter">
+    Use powerful query syntax to refine results
+  </Card>
+  <Card title="Instant Results" icon="bolt">
+    Fast, indexed search returns results as you type
+  </Card>
+  <Card title="Full-Text Search" icon="file-magnifying-glass">
+    Search inside PDFs, documents, and file contents
+  </Card>
+</CardGroup>
+
+## Basic Search
+
+The simplest way to search is to just type your query:
+
+<Steps>
+  <Step title="Open search">
+    Press `Cmd+K` or click the search bar
+  </Step>
+  <Step title="Type your query">
+    Enter keywords or phrases to search for
+  </Step>
+  <Step title="Review results">
+    Results appear as you type, organized by type
+  </Step>
+  <Step title="Navigate to result">
+    Click or press Enter to open the selected result
+  </Step>
+</Steps>
+
+<Tip>
+Search begins after you type at least 3 characters and returns results instantly as you continue typing.
+</Tip>
+
+## What You Can Search
+
+Macro searches across all content types:
+
+### Documents
+- Full document text content
+- Document titles and headings
+- @mentions within documents
+- Document metadata (owner, dates)
+
+### Email
+- Email subject lines
+- Email body content
+- Sender and recipient information
+- Email attachments
+
+### Messages
+- Channel message content
+- Thread replies
+- Direct messages
+- Message attachments
+
+### Tasks
+- Task titles and descriptions
+- Task status and assignees
+- Project names
+- Due dates and deadlines
+
+### Files
+- File names and metadata
+- PDF text content
+- Image metadata
+- File descriptions
+
+### People
+- User names
+- Email addresses
+- User profiles
+
+## Advanced Query Syntax
+
+Use powerful filters and operators to refine your search:
+
+### Filter by Type
+
+Search specific content types:
+
+```
+type:email quarterly report
+type:task urgent
+type:document architecture
+type:file contract
+type:channel announcement
+```
+
+<Info>
+You can search multiple types at once: `type:email,document budget review`
+</Info>
+
+### Filter by Status
+
+#### Email Status
+```
+type:email inbox:true
+type:email inbox:false  # Archived emails
+```
+
+#### Task Status
+```
+type:task status:completed
+type:task status:in_progress
+type:task status:todo
+```
+
+### Date Filters
+
+Search by creation, modification, or due dates:
+
+```
+type:task due:[1 week]           # Due in the next week
+type:email created:[today]       # Received today
+type:document updated:[3 days]   # Modified in last 3 days
+```
+
+#### Date Syntax
+- `[today]` - Today
+- `[yesterday]` - Yesterday
+- `[this week]` - Current week
+- `[1 week]` - Next 7 days
+- `[1 month]` - Next 30 days
+- Specific dates: `[2024-03-15]`
+
+### Text Search
+
+Search for exact phrases:
+
+```
+"quarterly review"        # Exact phrase
+"project status"          # Must contain this exact phrase
+type:email "urgent"       # Emails containing "urgent"
+```
+
+### Combined Queries
+
+Combine multiple filters:
+
+```
+type:task status:todo due:[1 week]
+type:email inbox:true "customer feedback"
+type:document updated:[today] architecture
+```
+
+<Note>
+Filters are combined with AND logic - all conditions must match for a result to appear.
+</Note>
+
+## Search Examples
+
+### Find Recent Emails
+```
+type:email inbox:true created:[today]
+```
+Shows all unarchived emails received today.
+
+### Find Overdue Tasks
+```
+type:task status:todo due:[yesterday]
+```
+Shows incomplete tasks that were due before today.
+
+### Find Contract Files
+```
+type:file "contract"
+```
+Finds all files with "contract" in the name or content.
+
+### Find Recent Documents
+```
+type:document updated:[3 days]
+```
+Shows documents modified in the last 3 days.
+
+### Find Channel Discussions
+```
+type:channel roadmap
+```
+Searches channel messages for "roadmap".
+
+## Search Results
+
+Results are organized for easy scanning:
+
+### Result Cards
+
+Each result shows:
+- **Icon**: Visual indicator of content type
+- **Title**: Document name, email subject, task title, etc.
+- **Preview**: Snippet of content with search terms highlighted
+- **Metadata**: Sender, date, status, or other relevant info
+- **Location**: Where the content is located (channel, project, etc.)
+
+### Highlighting
+
+Search terms are highlighted in:
+- Result titles
+- Content previews
+- Full document view after opening
+
+<Tip>
+Highlights help you quickly scan results and find the most relevant content.
+</Tip>
+
+## Search Shortcuts
+
+| Action | Shortcut | Description |
+|--------|----------|-------------|
+| Open search | `Cmd+K` | Open the search interface |
+| Navigate results | `↑` `↓` | Move through search results |
+| Open result | `Enter` | Open the selected result |
+| Close search | `Esc` | Close search without selecting |
+
+## PDF Search
+
+Macro includes powerful PDF search capabilities:
+
+- **Full-text extraction**: Search inside PDF contents
+- **Intelligent parsing**: Understands PDF structure
+- **Highlighted results**: See search terms in context
+- **Fast indexing**: PDFs are indexed for instant search
+
+<Info>
+When you upload a PDF or receive one as an email attachment, Macro automatically extracts and indexes the text for searching.
+</Info>
+
+## Search Best Practices
+
+### Start Simple
+
+Begin with basic keywords and add filters as needed:
+1. Start: `budget`
+2. Refine: `type:document budget`
+3. Narrow: `type:document budget updated:[1 week]`
+
+### Use Specific Filters
+
+Narrow results with targeted filters:
+- Use `type:` to search specific content
+- Add date filters for time-sensitive searches
+- Combine filters for precise results
+
+### Search for Exact Phrases
+
+Use quotes for multi-word searches:
+- `"product roadmap"` (exact phrase)
+- `product roadmap` (both words, any order)
+
+### Leverage Natural Language
+
+Use conversational date filters:
+- `due:[tomorrow]`
+- `created:[this week]`
+- `updated:[3 days]`
+
+<Tip>
+Experiment with different filters and combinations to find what works best for your workflow.
+</Tip>
+
+## Integration with Other Features
+
+### With AI Chat
+
+AI Chat can search your content:
+- Ask "Find emails about the Q4 budget"
+- "Show me tasks due this week"
+- "What documents mention the API redesign?"
+
+### With @Links
+
+Search finds @mentions:
+- Search for documents that mention specific tasks
+- Find where emails have been referenced
+- Discover connections in your knowledge graph
+
+### With Channels
+
+Search within channels:
+- Find specific discussions
+- Locate shared files
+- Review decisions and agreements
+
+## Search Architecture
+
+Under the hood, Macro uses:
+
+- **Full-text indexing**: All content is indexed for fast retrieval
+- **Partial matching**: Results appear as you type
+- **Real-time updates**: New content is indexed immediately
+- **Distributed search**: Scales to large workspaces
+
+<Note>
+Search indexes are updated in real-time. When you create or modify content, it becomes searchable within seconds.
+</Note>

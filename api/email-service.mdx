@@ -1,0 +1,598 @@
+---
+title: "Email Service API"
+description: "API reference for the Email Service - manage email threads, messages, drafts, and Gmail integration"
+---
+
+## Overview
+
+The Email Service provides comprehensive email management functionality for Macro, including Gmail integration, thread management, draft handling, and email search. It manages the full email lifecycle from inbox sync to sending.
+
+**Base URL:** `/email`
+
+**Authentication:** JWT authentication required. Email-specific endpoints also require a valid Gmail link via the authentication service.
+
+## Core Concepts
+
+### Links
+
+A "link" represents a connected email account (e.g., Gmail). Each user can have multiple links. All email operations are scoped to a specific link.
+
+### Threads
+
+Emails are organized into threads (conversations). Each thread contains one or more messages and maintains metadata like read status and labels.
+
+### Messages
+
+Individual email messages within threads. Messages can be:
+- Inbound (received)
+- Outbound (sent)
+- Drafts (not yet sent)
+- Scheduled (to be sent at a future time)
+
+---
+
+## Threads
+
+### Get Thread Messages
+
+```http
+GET /email/threads/{id}/messages
+```
+
+Retrieves all messages in a thread with pagination support.
+
+<ParamField path="id" type="string" required>
+  Thread ID (UUID)
+</ParamField>
+
+<ParamField query="offset" type="integer">
+  Pagination offset (default: 0)
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  Number of messages to return (default: 5, max: 100)
+</ParamField>
+
+<ResponseField name="messages" type="array">
+  Array of parsed message objects
+</ResponseField>
+
+<Note>
+Messages are returned in order of latest updated first. The service filters messages to only those accessible by the authenticated user's link.
+</Note>
+
+<CodeGroup>
+```json Response
+[
+  {
+    "id": "msg_123",
+    "thread_db_id": "550e8400-e29b-41d4-a716-446655440000",
+    "subject": "Product Launch",
+    "from": {
+      "email": "sender@example.com",
+      "name": "John Doe"
+    },
+    "to": [
+      {
+        "email": "recipient@example.com",
+        "name": "Jane Smith"
+      }
+    ],
+    "cc": [],
+    "bcc": [],
+    "body_text": "Message content...",
+    "body_html": "<html>Message content...</html>",
+    "date": "2026-03-04T10:30:00Z",
+    "is_read": true,
+    "has_attachments": true,
+    "link_id": "link_abc123"
+  }
+]
+```
+</CodeGroup>
+
+### List Threads
+
+```http
+GET /email/threads
+```
+
+Lists email threads with filtering and pagination.
+
+<ParamField query="label" type="string">
+  Filter by label (e.g., "INBOX", "SENT", "DRAFT")
+</ParamField>
+
+<ParamField query="unread" type="boolean">
+  Filter to unread threads only
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  Number of threads to return
+</ParamField>
+
+<ParamField query="cursor" type="string">
+  Pagination cursor from previous response
+</ParamField>
+
+### Update Thread
+
+```http
+PATCH /email/threads/{id}
+```
+
+Updates thread metadata (read status, labels, etc.).
+
+<ParamField path="id" type="string" required>
+  Thread ID
+</ParamField>
+
+<ParamField body="is_read" type="boolean">
+  Mark thread as read/unread
+</ParamField>
+
+<ParamField body="labels" type="array">
+  Array of label IDs to apply
+</ParamField>
+
+---
+
+## Drafts
+
+### Create Draft
+
+```http
+POST /email/drafts
+```
+
+Creates a new draft message.
+
+<ParamField body="draft" type="object" required>
+  Draft message object
+</ParamField>
+
+<ParamField body="draft.subject" type="string">
+  Email subject
+</ParamField>
+
+<ParamField body="draft.to" type="array" required>
+  Array of recipient email addresses
+</ParamField>
+
+<ParamField body="draft.cc" type="array">
+  CC recipients
+</ParamField>
+
+<ParamField body="draft.bcc" type="array">
+  BCC recipients
+</ParamField>
+
+<ParamField body="draft.body_text" type="string">
+  Plain text body
+</ParamField>
+
+<ParamField body="draft.body_html" type="string">
+  Base64-encoded HTML body
+</ParamField>
+
+<ParamField body="draft.thread_db_id" type="string">
+  Thread ID if replying to existing thread
+</ParamField>
+
+<ParamField body="draft.replying_to_id" type="string">
+  Message ID being replied to
+</ParamField>
+
+<ParamField body="send_time" type="datetime">
+  Schedule send time (for scheduled emails)
+</ParamField>
+
+<ResponseField name="draft" type="object">
+  Created draft with generated ID
+</ResponseField>
+
+<Note>
+The HTML body must be Base64-encoded (URL-safe, no padding) before sending.
+</Note>
+
+<CodeGroup>
+```json Request
+{
+  "draft": {
+    "subject": "Follow-up on Meeting",
+    "to": [
+      {
+        "email": "colleague@example.com",
+        "name": "Colleague Name"
+      }
+    ],
+    "body_text": "Hi, just following up...",
+    "body_html": "PGh0bWw+SGksIGp1c3QgZm9sbG93aW5nIHVwLi4uPC9odG1sPg=="
+  }
+}
+```
+
+```json Response
+{
+  "draft": {
+    "id": "draft_789",
+    "subject": "Follow-up on Meeting",
+    "to": [...],
+    "created_at": "2026-03-04T10:30:00Z"
+  }
+}
+```
+</CodeGroup>
+
+### Update Draft
+
+```http
+PATCH /email/drafts/{id}
+```
+
+Updates an existing draft.
+
+<ParamField path="id" type="string" required>
+  Draft ID
+</ParamField>
+
+### Delete Draft
+
+```http
+DELETE /email/drafts/{id}
+```
+
+Deletes a draft message.
+
+### Send Draft
+
+```http
+POST /email/drafts/{id}/send
+```
+
+Sends a draft immediately.
+
+### Add Attachment to Draft
+
+```http
+POST /email/drafts/{id}/attachments
+```
+
+Adds an attachment to a draft.
+
+<ParamField path="id" type="string" required>
+  Draft ID
+</ParamField>
+
+<ParamField body="document_id" type="string" required>
+  Document ID to attach (from document storage service)
+</ParamField>
+
+### Remove Attachment from Draft
+
+```http
+DELETE /email/drafts/{id}/attachments/{attachment_id}
+```
+
+Removes an attachment from a draft.
+
+---
+
+## Messages
+
+### Get Message
+
+```http
+GET /email/messages/{id}
+```
+
+Retrieves a single message by ID.
+
+<ParamField path="id" type="string" required>
+  Message ID
+</ParamField>
+
+### Send Message
+
+```http
+POST /email/messages/send
+```
+
+Sends a new message immediately (bypasses draft creation).
+
+<ParamField body="message" type="object" required>
+  Message object (same structure as draft)
+</ParamField>
+
+---
+
+## Attachments
+
+### Get Attachment
+
+```http
+GET /email/attachments/{id}
+```
+
+Downloads an email attachment.
+
+<ParamField path="id" type="string" required>
+  Attachment ID
+</ParamField>
+
+<ResponseField name="url" type="string">
+  Signed URL to download the attachment
+</ResponseField>
+
+<ResponseField name="filename" type="string">
+  Original filename
+</ResponseField>
+
+<ResponseField name="size_bytes" type="integer">
+  File size in bytes
+</ResponseField>
+
+<ResponseField name="mime_type" type="string">
+  MIME type of the attachment
+</ResponseField>
+
+### Get Attachment Document ID
+
+```http
+GET /email/attachments/{id}/document_id
+```
+
+Returns the document storage service document ID for an attachment (if it has been imported).
+
+---
+
+## Labels
+
+### List Labels
+
+```http
+GET /email/labels
+```
+
+Lists all labels/folders for the connected email account.
+
+<ResponseField name="labels" type="array">
+  Array of label objects
+</ResponseField>
+
+### Create Label
+
+```http
+POST /email/labels
+```
+
+Creates a new label.
+
+<ParamField body="name" type="string" required>
+  Label name
+</ParamField>
+
+---
+
+## Contacts
+
+### List Contacts
+
+```http
+GET /email/contacts
+```
+
+Retrieves email contacts with search and pagination.
+
+<ParamField query="search" type="string">
+  Search query for contact name or email
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  Number of contacts to return
+</ParamField>
+
+<ResponseField name="contacts" type="array">
+  Array of contact objects with email, name, and interaction count
+</ResponseField>
+
+---
+
+## Backfill & Sync
+
+### Start Backfill
+
+```http
+POST /email/backfill
+```
+
+Starts a backfill operation to sync historical emails from Gmail.
+
+<ParamField body="start_date" type="datetime">
+  Start date for backfill (defaults to account creation)
+</ParamField>
+
+<ParamField body="end_date" type="datetime">
+  End date for backfill (defaults to now)
+</ParamField>
+
+<ResponseField name="backfill_id" type="string">
+  Unique backfill operation ID
+</ResponseField>
+
+### Get Backfill Status
+
+```http
+GET /email/backfill/{id}
+```
+
+Checks the status of a backfill operation.
+
+<ResponseField name="status" type="string">
+  Status: `pending`, `in_progress`, `completed`, `failed`, `cancelled`
+</ResponseField>
+
+<ResponseField name="progress" type="object">
+  Progress information including total and processed count
+</ResponseField>
+
+### Cancel Backfill
+
+```http
+POST /email/backfill/{id}/cancel
+```
+
+Cancels an in-progress backfill operation.
+
+---
+
+## Settings
+
+### Get Email Settings
+
+```http
+GET /email/settings
+```
+
+Retrieves email account settings.
+
+### Update Email Settings
+
+```http
+PATCH /email/settings
+```
+
+Updates email account settings.
+
+<ParamField body="signature" type="string">
+  Email signature (HTML)
+</ParamField>
+
+<ParamField body="auto_bcc" type="string">
+  Email address to automatically BCC on all sent messages
+</ParamField>
+
+---
+
+## Initialize Email
+
+### Initialize Email Account
+
+```http
+POST /email/init
+```
+
+Initializes email service for a newly linked Gmail account. This endpoint:
+- Validates the Gmail token
+- Creates initial database records
+- Starts the inbox sync
+
+<Warning>
+This endpoint requires a valid Gmail access token in the request headers.
+</Warning>
+
+---
+
+## Error Codes
+
+### Common Errors
+
+- `400` - Bad Request (validation error)
+- `401` - Unauthorized (no valid link)
+- `403` - Forbidden (rate limit or permissions)
+- `404` - Not Found (thread/message doesn't exist)
+- `429` - Too Many Requests (rate limited by Gmail API)
+- `500` - Internal Server Error
+
+### Service-Specific Error Codes
+
+- `GMAIL_TOKEN_EXPIRED` - Gmail access token needs refresh
+- `INVALID_RECIPIENT` - One or more recipient email addresses invalid
+- `ATTACHMENT_TOO_LARGE` - Attachment exceeds size limit
+- `THREAD_NOT_ACCESSIBLE` - Thread belongs to different link
+- `RATE_LIMIT_EXCEEDED` - Gmail API rate limit reached
+- `BACKFILL_IN_PROGRESS` - Cannot start new backfill while one is running
+
+<CodeGroup>
+```json Error Response
+{
+  "message": "Gmail access token has expired. Please re-authenticate.",
+  "error_code": "GMAIL_TOKEN_EXPIRED"
+}
+```
+</CodeGroup>
+
+---
+
+## Data Models
+
+### Thread
+
+```typescript
+interface Thread {
+  db_id: string;                    // UUID
+  provider_id?: string;             // Gmail thread ID
+  link_id: string;                  // Connected account ID
+  inbox_visible: boolean;
+  is_read: boolean;
+  latest_inbound_message_ts?: string;
+  latest_outbound_message_ts?: string;
+  created_at: string;
+  updated_at: string;
+  messages: Message[];
+}
+```
+
+### Message
+
+```typescript
+interface Message {
+  id: string;
+  thread_db_id: string;
+  subject?: string;
+  from: EmailAddress;
+  to: EmailAddress[];
+  cc: EmailAddress[];
+  bcc: EmailAddress[];
+  body_text?: string;
+  body_html?: string;
+  date: string;
+  is_read: boolean;
+  has_attachments: boolean;
+  link_id: string;
+  provider_id?: string;             // Gmail message ID
+}
+
+interface EmailAddress {
+  email: string;
+  name?: string;
+}
+```
+
+### Draft
+
+```typescript
+interface MessageToSend {
+  id?: string;
+  subject?: string;
+  to: EmailAddress[];
+  cc?: EmailAddress[];
+  bcc?: EmailAddress[];
+  body_text?: string;
+  body_html?: string;                // Base64-encoded
+  thread_db_id?: string;
+  replying_to_id?: string;
+  link_id: string;
+}
+```
+
+### Contact
+
+```typescript
+interface Contact {
+  email: string;
+  name?: string;
+  interaction_count: number;
+  last_interaction: string;
+}
+```

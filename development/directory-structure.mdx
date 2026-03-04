@@ -1,0 +1,366 @@
+---
+title: 'Directory Structure'
+description: 'Understanding Macro monorepo organization'
+---
+
+## Repository Overview
+
+Macro is organized as a monorepo containing frontend, backend services, infrastructure, and tooling. This structure enables efficient development across the full stack while maintaining clear separation of concerns.
+
+## Top-Level Structure
+
+```
+macro/
+├── js/app/                      # Frontend (SolidJS + Tauri)
+├── rust/cloud-storage/          # Backend services (Rust)
+├── infra/                       # Infrastructure (Pulumi + AWS)
+└── scripts/                     # Build and utility scripts
+```
+
+## Frontend: `js/app/`
+
+The frontend is built with SolidJS and supports both web and desktop (via Tauri).
+
+### Package Structure
+
+```
+js/app/
+├── packages/
+│   ├── app/                 # Web/Desktop app entry point
+│   ├── core/                # Core shared logic and components
+│   ├── lexical-core/        # Core text editor (Lexical-based)
+│   ├── block-*/             # UI block components
+│   └── service-*/           # API clients for backend services
+└── src-tauri/               # Tauri Rust backend for desktop
+```
+
+### Key Directories
+
+<CardGroup cols={2}>
+  <Card title="packages/app" icon="window">
+    **Application Entry Point**
+    
+    Main application initialization for both web and desktop platforms. Contains routing, app shell, and platform-specific code.
+  </Card>
+
+  <Card title="packages/core" icon="cube">
+    **Shared Core Logic**
+    
+    Common utilities, components, state management, and business logic shared across the application.
+  </Card>
+
+  <Card title="packages/lexical-core" icon="text">
+    **Text Editor**
+    
+    Lexical-based rich text editor used across emails, notes, channels, and tasks. Provides consistent editing experience.
+  </Card>
+
+  <Card title="packages/block-*" icon="grid">
+    **UI Blocks**
+    
+    Modular UI components for different features:
+    - `block-email`: Email client UI
+    - `block-chat`: Messaging/channels UI
+    - `block-canvas`: Canvas/diagramming UI
+    - `block-docs`: Document editing UI
+    - And more...
+  </Card>
+
+  <Card title="packages/service-*" icon="plug">
+    **API Clients**
+    
+    Type-safe client libraries for backend services:
+    - `service-document`: Document storage API
+    - `service-email`: Email service API
+    - `service-comms`: Communication API
+    - `service-search`: Search API
+  </Card>
+
+  <Card title="src-tauri" icon="desktop">
+    **Desktop Backend**
+    
+    Rust-based Tauri backend for desktop application. Handles native OS integration, file system access, and desktop-specific features.
+  </Card>
+</CardGroup>
+
+## Backend: `rust/cloud-storage/`
+
+The backend is a Rust Cargo workspace containing 80+ crates organized as microservices.
+
+### Service Organization
+
+```
+rust/cloud-storage/
+├── document-storage-service/    # Document storage API
+├── email_service/               # Email processing
+├── comms_service/               # Messaging
+├── search_service/              # Full-text search
+├── authentication_service/      # Auth
+├── connection_gateway/          # WebSocket gateway
+├── notification_service/        # Notifications
+├── convert_service/             # Document conversion
+├── document-cognition-service/  # Document analysis
+├── document-text-extractor/     # Text extraction
+├── search_processing_service/   # Search indexing
+├── static_file_service/         # Static file serving
+├── contacts_service/            # Contact management
+├── macro_db_client/             # PostgreSQL client
+└── ...                          # Other services and shared crates
+```
+
+### Core Services
+
+<AccordionGroup>
+  <Accordion title="Document Storage Services">
+    **document-storage-service**
+    - Main document storage API
+    - CRUD operations for documents
+    - Permissions and access control
+    - Document metadata management
+
+    **document-cognition-service**
+    - Document analysis and processing
+    - Content understanding
+    - Smart document features
+
+    **static_file_service**
+    - Static file serving
+    - File uploads and downloads
+    - S3 integration
+  </Accordion>
+
+  <Accordion title="Processing Services">
+    **convert_service**
+    - Document format conversion
+    - File transformation
+    - Format compatibility
+
+    **document-text-extractor**
+    - Text extraction from documents
+    - PDF processing (pdfium)
+    - DOCX processing
+
+    **search_processing_service**
+    - Search indexing pipeline
+    - OpenSearch integration
+    - Index management
+  </Accordion>
+
+  <Accordion title="Communication Services">
+    **comms_service**
+    - Internal communication handling
+    - Messages and channels
+    - Real-time messaging
+
+    **email_service**
+    - Email processing and management
+    - Gmail sync
+    - Email storage and retrieval
+
+    **notification_service**
+    - User notifications
+    - Push notifications
+    - Notification preferences
+  </Accordion>
+
+  <Accordion title="Infrastructure Services">
+    **authentication_service**
+    - User authentication
+    - FusionAuth integration
+    - Session management
+
+    **connection_gateway**
+    - WebSocket gateway
+    - Real-time connection management
+    - Connection tracking in DynamoDB
+
+    **contacts_service**
+    - Contact management
+    - User connections
+    - ContactsDB integration
+  </Accordion>
+
+  <Accordion title="Search Services">
+    **search_service**
+    - Search API endpoint
+    - Query processing
+    - Result ranking
+    - Full-text search across all content types
+
+    **search_processing_service**
+    - Background search indexing
+    - OpenSearch document updates
+    - Search event queue processing
+  </Accordion>
+</AccordionGroup>
+
+### Shared Crates
+
+The workspace includes shared utility crates:
+
+- **Database Clients:**
+  - `macro_db_client`: PostgreSQL client for MacroDB
+  - `comms_db_client`: Communication database client
+  - `contacts_db_client`: Contacts database client
+  - `email_db_client`: Email database client
+
+- **Common Utilities:**
+  - Shared types and models
+  - Common middleware
+  - Error handling utilities
+  - Authentication helpers
+
+## Infrastructure: `infra/`
+
+Infrastructure as code using Pulumi with TypeScript.
+
+### Infrastructure Structure
+
+```
+infra/
+├── stacks/                  # Pulumi deployment stacks
+│   ├── fusionauth-instance/ # FusionAuth authentication
+│   └── ...                  # Other stack definitions
+├── lambda/                  # Lambda function configs
+│   ├── document-text-extractor/
+│   ├── docx-unzip-handler/
+│   ├── delete-chat-handler/
+│   ├── email-suppression/
+│   └── ...                  # Other Lambda configs
+└── resources/               # Reusable AWS resource definitions
+```
+
+### Key Components
+
+<CardGroup cols={2}>
+  <Card title="stacks/" icon="layer-group">
+    **Deployment Stacks**
+    
+    Pulumi stack definitions for different environments and services. Each stack manages related AWS resources.
+  </Card>
+
+  <Card title="lambda/" icon="function">
+    **Lambda Functions**
+    
+    Serverless function configurations:
+    - Document text extraction
+    - DOCX unzipping
+    - Chat deletion handlers
+    - Email suppression
+    - And more...
+  </Card>
+
+  <Card title="resources/" icon="cube">
+    **Reusable Resources**
+    
+    Shared AWS resource definitions and templates used across stacks.
+  </Card>
+</CardGroup>
+
+## Scripts: `scripts/`
+
+Build and utility scripts for development and deployment.
+
+```
+scripts/
+├── build scripts
+├── deployment automation
+└── utility tools
+```
+
+## Development Files
+
+### Root Level Files
+
+- **`justfile`**: Main task runner configuration with development commands
+- **`local_stack.just`**: LocalStack recipes for local AWS emulation
+- **`docker-compose.yml`**: Service orchestration for local development
+- **`docker-compose-databases.yml`**: Database containers configuration
+- **`RUNNING_LOCALLY.md`**: Local development guide
+- **`README.md`**: Project overview and directory structure
+
+### Rust Workspace
+
+- **`Cargo.toml`**: Workspace manifest defining all crates
+- **`Cargo.lock`**: Dependency lock file
+- **`.sqlx/`**: SQLx offline query cache
+
+### Frontend Workspace
+
+- **`package.json`**: Workspace package configuration
+- **`turbo.json`**: Turborepo build configuration
+- **`tsconfig.json`**: TypeScript configuration
+
+## Navigation Guide
+
+### Finding Features
+
+<Steps>
+  <Step title="Identify the Layer">
+    Determine if the feature is:
+    - **Frontend**: User interface (look in `js/app/packages/`)
+    - **Backend**: API or processing (look in `rust/cloud-storage/`)
+    - **Infrastructure**: AWS resources (look in `infra/`)
+  </Step>
+  
+  <Step title="Find the Service">
+    Match the feature to a service:
+    - Email → `email_service/` or `block-email/`
+    - Documents → `document-storage-service/` or `block-docs/`
+    - Search → `search_service/` or search components
+    - Messaging → `comms_service/` or `block-chat/`
+  </Step>
+  
+  <Step title="Locate the Code">
+    Within the service:
+    - **Rust services**: Check `src/` for implementation
+    - **Frontend packages**: Check `src/` for components
+    - **API clients**: Look in `packages/service-*/`
+  </Step>
+</Steps>
+
+### Working with Databases
+
+Database schemas and migrations:
+
+- **Schema**: `macro-api/database/schema.prisma`
+- **Migrations**: Service-specific `migrations/` directories
+- **SQL clients**: `*_db_client/` crates in Rust workspace
+
+### Finding Tests
+
+- **Rust tests**: `test.rs` files in service directories
+- **Frontend tests**: Co-located with components
+- **Integration tests**: `tests/` directories in services
+
+## File Naming Conventions
+
+### Rust Services
+
+- Services: `{feature}_service/`
+- Database clients: `{db_name}_db_client/`
+- Libraries: `{functionality}/`
+- Tests: `test.rs` in module directory
+
+### Frontend Packages
+
+- Blocks: `block-{feature}/`
+- Services: `service-{backend}/`
+- Shared: `core/`, `lexical-core/`
+
+### Infrastructure
+
+- Stacks: `stacks/{service}-{environment}/`
+- Lambdas: `lambda/{function-name}/`
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Getting Started" icon="rocket" href="/development/getting-started">
+    Set up your local development environment
+  </Card>
+  
+  <Card title="Architecture" icon="sitemap" href="/development/architecture">
+    Learn about the system architecture
+  </Card>
+</CardGroup>

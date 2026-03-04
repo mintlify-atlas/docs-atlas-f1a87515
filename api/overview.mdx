@@ -1,0 +1,202 @@
+---
+title: 'API Overview'
+description: 'Understanding the Macro API architecture, microservices, and RPC communication'
+---
+
+## Architecture
+
+Macro's API is built on a microservices architecture using Rust and the Axum web framework. The system consists of 80+ services organized as a Cargo workspace, handling document storage, processing, search, communication, and authentication.
+
+### Microservices Design
+
+The API follows a domain-driven microservices pattern where each service has:
+
+- **Dedicated responsibility** - Each service handles a specific domain (authentication, documents, email, etc.)
+- **Independent database** - Services maintain their own database clients and schemas
+- **Service-to-service communication** - Internal APIs use a custom RPC pattern for type-safe communication
+- **External APIs** - HTTP/REST endpoints for client applications
+
+<Note>
+  Services are organized into core categories: Storage Services (documents, static files), Processing Services (conversion, text extraction), Communication Services (messaging, email, notifications), and Infrastructure Services (authentication, connections, contacts).
+</Note>
+
+## Core Services
+
+### Storage Services
+
+- **document-storage-service** - Main document storage and retrieval API
+- **document-cognition-service** - Document analysis and processing
+- **search_service** - Full-text search across documents
+- **static_file_service** - Static asset serving
+
+### Processing Services
+
+- **convert_service** - Document format conversion
+- **document-text-extractor** - Text extraction from PDFs, DOCX, and other formats
+- **search_processing_service** - Search indexing pipeline
+
+### Communication Services
+
+- **comms_service** - Internal messaging and communication
+- **email_service** - Email processing and management
+- **notification_service** - Push notifications and user alerts
+
+### Infrastructure Services
+
+- **authentication_service** - User authentication and authorization (see [Authentication](/api/authentication))
+- **connection_gateway** - WebSocket gateway for real-time connections
+- **contacts_service** - Contact and connection management
+
+## RPC Communication Pattern
+
+Macro uses a custom RPC system built on Axum called `axum_rpc` for type-safe service-to-service communication.
+
+### How It Works
+
+Services define trait-based contracts that automatically generate both client and server implementations:
+
+```rust
+#[axum_rpc::attr_macros(router)]
+trait MyService {
+    async fn get_data(&self, request: DataRequest) -> Result<DataResponse, ServiceError>;
+}
+```
+
+This generates:
+
+1. **Router** - Server-side handler that implements the trait methods
+2. **Client** - Type-safe HTTP client with the same interface
+
+### Client Generation
+
+Service clients are code-generated with:
+
+- Automatic request/response serialization via JSON
+- Type-safe method signatures matching the trait
+- Built-in error handling
+- Support for request middleware (authentication headers, etc.)
+
+### Request Flow
+
+1. Client calls trait method: `service.get_data(request).await`
+2. Client serializes request to JSON and POSTs to `/get_data` endpoint
+3. Server deserializes request and calls implementation
+4. Response is serialized and returned to client
+
+<ParamField path="endpoint" type="string" required>
+  All RPC methods are exposed as POST endpoints at `/{method_name}`
+</ParamField>
+
+<ParamField body="request" type="object" required>
+  Request body contains the serialized method arguments as JSON
+</ParamField>
+
+<ResponseField name="response" type="object">
+  Successful responses return the serialized result type
+</ResponseField>
+
+<ResponseField name="error" type="object">
+  Errors follow the service's defined error type structure
+</ResponseField>
+
+## Service Communication
+
+Services communicate through multiple channels:
+
+### HTTP APIs
+
+- **Internal RPC** - Service clients using `axum_rpc` with internal authentication
+- **External REST** - Public-facing HTTP endpoints for web/mobile clients
+- **Health checks** - `/health` endpoints for monitoring
+
+### Async Processing
+
+- **SQS Queues** - Message queuing for async operations (search indexing, notifications)
+- **Lambda Functions** - Event-driven serverless processing (document extraction, email handling)
+- **Event Streams** - Domain events published to queues
+
+### Data Stores
+
+- **PostgreSQL** - Primary data storage (MacroDB, ContactsDB, CommsDB, EmailDB)
+- **Redis** - Caching, session management, and rate limiting
+- **S3** - Document and file storage
+- **OpenSearch** - Full-text search indexing
+- **DynamoDB** - WebSocket connection tracking
+
+<Warning>
+  Internal service-to-service calls use a shared `SERVICE_INTERNAL_AUTH_KEY` for authentication. This is separate from user authentication tokens.
+</Warning>
+
+## Request/Response Format
+
+All API endpoints follow consistent patterns:
+
+### Request Headers
+
+```
+Content-Type: application/json
+Authorization: Bearer {access_token}  // For user-authenticated requests
+X-Internal-Auth: {internal_key}        // For service-to-service requests
+```
+
+### Response Format
+
+<ResponseField name="success" type="object">
+  ```json
+  {
+    "data": { /* response payload */ }
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="error" type="object">
+  ```json
+  {
+    "message": "Error description"
+  }
+  ```
+</ResponseField>
+
+## Error Handling
+
+Services use standard HTTP status codes:
+
+- **200 OK** - Successful request
+- **400 Bad Request** - Invalid request parameters
+- **401 Unauthorized** - Missing or invalid authentication
+- **403 Forbidden** - Insufficient permissions
+- **404 Not Found** - Resource not found
+- **429 Too Many Requests** - Rate limit exceeded
+- **500 Internal Server Error** - Server-side error
+
+<Note>
+  All errors include a descriptive `message` field in the response body.
+</Note>
+
+## Environment Configuration
+
+Services are configured via environment variables and support three environments:
+
+- **Local** - Development environment with minimal connection pools
+- **Develop** - Staging environment for testing
+- **Production** - Production environment with optimized resource allocation
+
+Each service requires:
+
+<ParamField query="DATABASE_URL" type="string" required>
+  PostgreSQL connection string for the service's database
+</ParamField>
+
+<ParamField query="REDIS_URI" type="string" required>
+  Redis connection string for caching and sessions
+</ParamField>
+
+<ParamField query="SERVICE_INTERNAL_AUTH_KEY" type="string" required>
+  Shared secret for service-to-service authentication
+</ParamField>
+
+## Next Steps
+
+- Learn about [Authentication](/api/authentication) and authorization
+- Explore [Core Services](/api/document-storage) and [Processing Services](/api/document-cognition) endpoints
+- Review the [Development Guide](/development/getting-started) to set up your development environment

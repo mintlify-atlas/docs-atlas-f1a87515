@@ -1,0 +1,674 @@
+---
+title: 'File Storage'
+description: 'Store, manage, and search your files in Macro'
+icon: 'folder'
+---
+
+Macro provides unified file storage across emails, channels, and documents. Files are automatically imported from attachments, searchable by content, and accessible via @mentions.
+
+## Overview
+
+<CardGroup cols={2}>
+  <Card title="Auto-Import" icon="file-import">
+    Email attachments and channel uploads automatically import to your file storage. No manual organizing needed.
+  </Card>
+  
+  <Card title="Full-Text Search" icon="magnifying-glass">
+    Search inside PDFs, documents, and images. Find text even in screenshots and scanned documents.
+  </Card>
+  
+  <Card title="Smart Organization" icon="folder-tree">
+    Files are linked to emails, channels, and docs they came from. Navigate context, not folder hierarchies.
+  </Card>
+  
+  <Card title="Universal Access" icon="link">
+    @mention any file anywhere. Permissions inherit from where it's shared.
+  </Card>
+</CardGroup>
+
+## File Types
+
+Macro supports a wide range of file types:
+
+<Tabs>
+  <Tab title="Documents">
+    **Native Editing:**
+    - `.md` - Markdown (opens in Macro editor)
+    - `.txt` - Plain text
+    - Macro documents (created in-app)
+    
+    **Preview & Search:**
+    - `.pdf` - PDF with text extraction
+    - `.docx`, `.doc` - Microsoft Word
+    - `.pages` - Apple Pages
+    - `.odt` - OpenDocument
+  </Tab>
+  
+  <Tab title="Images">
+    **Display & Edit:**
+    - `.jpg`, `.jpeg` - JPEG images
+    - `.png` - PNG images  
+    - `.gif` - Animated GIFs
+    - `.webp` - WebP images
+    - `.svg` - Vector graphics
+    
+    **Features:**
+    - Inline preview
+    - OCR text extraction (from images with text)
+    - Thumbnail generation
+  </Tab>
+  
+  <Tab title="Media">
+    **Video:**
+    - `.mp4`, `.mov`, `.avi`
+    - `.webm`, `.mkv`
+    - Inline playback
+    - Thumbnail extraction
+    
+    **Audio:**
+    - `.mp3`, `.wav`, `.m4a`
+    - `.ogg`, `.flac`
+    - Inline player
+    - Waveform visualization
+  </Tab>
+  
+  <Tab title="Code & Data">
+    **Code Files:**
+    - All text-based code files
+    - Syntax highlighting in preview
+    - Full-text searchable
+    
+    **Data:**
+    - `.json`, `.xml`, `.yaml`
+    - `.csv`, `.tsv`
+    - `.sql`
+    - Pretty-printed preview
+  </Tab>
+  
+  <Tab title="Archives">
+    **Supported:**
+    - `.zip` - Browse contents
+    - `.tar`, `.gz`, `.tgz`
+    - `.rar`, `.7z`
+    
+    **Features:**
+    - View archive contents
+    - Extract individual files
+    - Search within archives
+  </Tab>
+</Tabs>
+
+## Auto-Import from Emails
+
+When you receive an email with attachments:
+
+<Steps>
+  <Step title="Attachment Detected">
+    Macro detects attachments in incoming emails automatically.
+  </Step>
+  
+  <Step title="Import to Storage">
+    Attachments are imported to your file storage:
+    - Full file saved
+    - Metadata extracted (size, type, date)
+    - Link maintained to source email
+  </Step>
+  
+  <Step title="Text Extraction">
+    For supported types (PDF, images, docs):
+    - Text is extracted for search
+    - OCR applied to images if needed
+    - Content indexed immediately
+  </Step>
+  
+  <Step title="Accessible Everywhere">
+    Files are now searchable and @mentionable:
+    - Search by filename or content
+    - @mention in any document
+    - Still accessible from original email
+  </Step>
+</Steps>
+
+<Info>
+  **Storage behavior:**
+  - Attachments under 100MB auto-import
+  - Large files (>100MB) show "Import" button in email
+  - Duplicate files (same hash) reference existing file
+  - Original attachment remains in email for context
+</Info>
+
+### Import Settings
+
+<AccordionGroup>
+  <Accordion title="Auto-Import Rules">
+    **Settings** > **Files** > **Auto-Import**
+    
+    Configure what gets auto-imported:
+    - All attachments (default)
+    - Only specific file types (e.g., only PDFs and images)
+    - Only from internal senders
+    - Skip files over size limit
+    
+    **Recommended:** Enable for all file types to maximize searchability.
+  </Accordion>
+  
+  <Accordion title="External Email Handling">
+    Files from external emails have special handling:
+    
+    - **You own the imported file** (sender does NOT get access)
+    - Can @mention file to others (grants them access)
+    - Original sender needs explicit permission to access your copy
+    
+    This prevents permission leakage from external sources.
+  </Accordion>
+</AccordionGroup>
+
+## Channel File Sharing
+
+Share files in channels by uploading or dragging:
+
+### Upload to Channel
+
+<Tabs>
+  <Tab title="Drag & Drop">
+    1. Drag files from desktop into channel
+    2. Files upload and appear inline
+    3. Channel members automatically get access (Viewer by default)
+    4. File is linked to channel and message
+  </Tab>
+  
+  <Tab title="Paste">
+    1. Copy file (Cmd+C) or screenshot (Cmd+Shift+4 on Mac)
+    2. Paste into channel message (Cmd+V)
+    3. File uploads inline
+    4. Works for images, videos, and documents
+  </Tab>
+  
+  <Tab title="Upload Button">
+    1. Click **+** button in channel input
+    2. Select "Upload File"
+    3. Choose file(s) from picker
+    4. Optionally add caption or @mention
+  </Tab>
+</Tabs>
+
+### File Messages
+
+Files in channels appear as rich previews:
+
+- **Images/Videos**: Inline preview (click to expand)
+- **PDFs**: First page thumbnail + page count
+- **Documents**: Icon + filename + size
+- **Code**: Syntax-highlighted preview
+
+<Tip>
+  Click any file preview to open in Macro's file viewer. For PDFs, this opens the full PDF viewer with search and annotation.
+</Tip>
+
+## PDF Viewer
+
+Macro has a powerful built-in PDF viewer:
+
+### Features
+
+<CardGroup cols={2}>
+  <Card title="Text Extraction" icon="file-lines">
+    Intelligent parsing extracts text from PDFs:
+    - Searchable by content
+    - Copy text directly  
+    - Preserved formatting
+    - Works with scanned PDFs (OCR)
+  </Card>
+  
+  <Card title="Full-Text Search" icon="magnifying-glass">
+    Search within PDF:
+    - Press **Cmd+F** in viewer
+    - Highlights all matches
+    - Jump between results
+    - Works across all pages
+  </Card>
+  
+  <Card title="Navigation" icon="compass">
+    Easy navigation:
+    - Thumbnail sidebar
+    - Table of contents (if available)
+    - Jump to page: **Cmd+G**
+    - Next/previous page: **j**/**k** or **Space**
+  </Card>
+  
+  <Card title="Annotations" icon="pen">
+    Annotate PDFs:
+    - Highlight text
+    - Add comments
+    - Draw shapes
+    - Annotations sync via CRDT
+  </Card>
+</CardGroup>
+
+### PDF Viewer Shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| `Space` | Next page |
+| `Shift+Space` | Previous page |
+| `j` / `k` | Scroll down / up |
+| `Cmd+F` / `Ctrl+F` | Search in PDF |
+| `Cmd+G` / `Ctrl+G` | Go to page |
+| `Cmd++` / `Ctrl++` | Zoom in |
+| `Cmd+-` / `Ctrl+-` | Zoom out |
+| `Cmd+0` / `Ctrl+0` | Fit to width |
+| `Cmd+1` / `Ctrl+1` | Actual size |
+| `Cmd+2` / `Ctrl+2` | Fit to page |
+
+### AI with PDFs
+
+Use AI to understand PDF content:
+
+<Steps>
+  <Step title="Open PDF">
+    Open any PDF in Macro's viewer.
+  </Step>
+  
+  <Step title="Highlight & Ask">
+    1. Highlight any text in the PDF
+    2. Click **Explain** (or press **Cmd+Shift+E**)
+    3. AI popup explains the selected text
+  </Step>
+  
+  <Step title="Ask Questions">
+    Or @mention PDF in AI chat:
+    ```
+    @ai Summarize @contract.pdf section 3
+    @ai What are the key terms in @proposal.pdf?
+    ```
+  </Step>
+  
+  <Step title="Cite Sources">
+    AI responses cite specific PDF sections:
+    - References page numbers
+    - Links back to exact location
+    - Shows excerpt in context
+  </Step>
+</Steps>
+
+<Info>
+  AI citations use unique IDs for PDF sections. Example: `[PDF:doc123:p5]` links to page 5 of the document.
+</Info>
+
+## File Search
+
+### Search by Content
+
+Use unified search to find files by content:
+
+```plaintext
+type:file "machine learning"     # Files containing "machine learning"
+type:pdf contract                # PDFs with "contract" in content
+type:image receipt               # Images with text "receipt" (OCR)
+type:doc proposal                # Documents with "proposal"
+```
+
+### Search Operators
+
+<Tabs>
+  <Tab title="File Type">
+    Filter by file type:
+    ```
+    type:file              # All files
+    type:pdf               # PDFs only
+    type:image             # Images only
+    type:video             # Videos only  
+    type:doc               # Text documents
+    ```
+  </Tab>
+  
+  <Tab title="Source">
+    Find files by where they came from:
+    ```
+    from:alice@example.com type:file    # Files from Alice
+    in:#marketing type:pdf              # PDFs shared in #marketing
+    email:subject type:file             # Files from emails matching subject
+    ```
+  </Tab>
+  
+  <Tab title="Metadata">
+    Search by file properties:
+    ```
+    filename:contract.pdf          # Exact filename
+    ext:pdf                        # File extension
+    size:>10mb                     # Files larger than 10MB
+    modified:[1 week]              # Modified in last week
+    created:[2024-03-01]           # Created on/after date
+    ```
+  </Tab>
+  
+  <Tab title="Content">
+    Search inside file contents:
+    ```
+    "exact phrase"                 # Exact phrase in content
+    word1 word2                    # Both words anywhere
+    word1 OR word2                 # Either word
+    word1 -word2                   # word1 but NOT word2
+    ```
+  </Tab>
+</Tabs>
+
+### Advanced Search
+
+Combine operators for precise results:
+
+```plaintext
+type:pdf from:legal@company.com "confidential" size:>1mb
+→ PDFs from legal, containing "confidential", over 1MB
+
+type:image in:#receipts modified:[1 month] 
+→ Images in #receipts channel, modified in last month
+
+type:file ext:docx "Q4 2024" -"draft"
+→ .docx files with "Q4 2024" but not "draft"
+```
+
+<Tip>
+  Press **Cmd+/** to open search, then type `type:file` to start searching files. Autocomplete suggests operators as you type.
+</Tip>
+
+## File Management
+
+### File Browser
+
+Access all your files:
+
+1. Press **Cmd+1** to open sidebar
+2. Click **Files** section
+3. Browse by:
+   - Recent files
+   - Files by source (email, channel, upload)
+   - Shared with me
+   - File type
+
+### Organize Files
+
+<AccordionGroup>
+  <Accordion title="By Context (Recommended)">
+    Macro organizes files by **context**, not folders:
+    
+    - Files from email → linked to that email
+    - Files from channel → linked to channel message  
+    - Files @mentioned → linked to all mentions
+    
+    Navigate by **where you used the file**, not where you stored it.
+  </Accordion>
+  
+  <Accordion title="By @Mentions">
+    Link files to relevant content:
+    
+    ```markdown
+    Meeting notes @meeting-notes
+    Proposal draft @proposal  
+    Budget spreadsheet @q4-budget
+    ```
+    
+    Files show "Mentioned in" backlinks automatically.
+  </Accordion>
+  
+  <Accordion title="By Tags (Optional)">
+    Add tags to files for categorization:
+    
+    - Right-click file → **Add tags**
+    - Type tag names (create on-the-fly)
+    - Search by tag: `tag:important tag:finance`
+    - Tags are personal (not shared)
+  </Accordion>
+</AccordionGroup>
+
+### File Actions
+
+Right-click any file or press **Cmd+K** with file selected:
+
+| Action | Description |
+| --- | --- |
+| **Open** | Open in Macro viewer/editor |
+| **Download** | Download to local device |
+| **Share** | Share via @mention or link |
+| **Copy Link** | Copy @mention link |
+| **Rename** | Change filename |
+| **Move to Trash** | Delete file (can undo) |
+| **Show in Email** | Jump to source email (if applicable) |
+| **Show in Channel** | Jump to channel message (if applicable) |
+| **Properties** | View metadata, permissions, version history |
+
+## File Versioning
+
+Files in Macro are versioned:
+
+<Tabs>
+  <Tab title="Automatic Versions">
+    When you edit a file in Macro:
+    
+    - Each save creates a new version
+    - Previous versions preserved
+    - Access via **Cmd+H** (version history)
+    - Restore any previous version
+  </Tab>
+  
+  <Tab title="Manual Upload">
+    When you upload a new version:
+    
+    1. Right-click file → **Upload new version**
+    2. Select replacement file
+    3. New version replaces current
+    4. Old version moves to history
+    5. File ID stays the same (links don't break)
+  </Tab>
+  
+  <Tab title="Version History">
+    View all versions:
+    
+    1. Open file
+    2. Press **Cmd+H**
+    3. See timeline of versions
+    4. Preview any version
+    5. Restore or download old version
+  </Tab>
+</Tabs>
+
+<Info>
+  Uploading a new version doesn't break @mentions or links. The file ID remains the same, so all references stay valid.
+</Info>
+
+## Permissions
+
+File permissions work like document permissions:
+
+### Inheritance Model
+
+<Steps>
+  <Step title="File Created/Uploaded">
+    You're the **Owner** with full permissions.
+  </Step>
+  
+  <Step title="Shared in Channel">
+    Channel members get access based on their role:
+    - **Channel Owners** → Editor access
+    - **Channel Members** → Viewer access
+    - **Guests** → No access (unless explicit)
+  </Step>
+  
+  <Step title="Sent via Email">
+    Email recipients automatically get:
+    - **Internal** → Viewer access
+    - **External** → Guest link (optional)
+  </Step>
+  
+  <Step title="@Mentioned">
+    When you @mention a file:
+    - Recipient gets Viewer access automatically
+    - They can request Editor access
+    - Shows in their "Shared with me"
+  </Step>
+</Steps>
+
+<Warning>
+  Files from **external emails** (attachments you received) are owned by **you**, not the sender. The sender does NOT automatically have access to your imported copy.
+</Warning>
+
+See [Permissions Guide](/guide/permissions) for detailed permission management.
+
+## Storage Limits
+
+<Tabs>
+  <Tab title="Individual Files">
+    **Per-file limits:**
+    - Standard: 100 MB per file
+    - Large files (optional): Up to 5 GB
+    - Videos: Up to 2 GB (auto-compression available)
+    
+    Files over limit show upload warning.
+  </Tab>
+  
+  <Tab title="Total Storage">
+    **Account storage:**
+    - Free tier: 10 GB total
+    - Pro tier: 1 TB total  
+    - Team tier: Unlimited
+    
+    Check usage: **Settings** > **Storage**
+  </Tab>
+  
+  <Tab title="Optimization">
+    **Storage tips:**
+    - Delete unused files: Free up space
+    - Compress videos: Enable in settings
+    - Archive old emails: Attachments move to cold storage
+    - Share via link: Don't duplicate large files
+  </Tab>
+</Tabs>
+
+## External Sharing
+
+Share files with people outside Macro:
+
+### Guest Links
+
+<Steps>
+  <Step title="Generate Link">
+    Right-click file → **Share** → **Create guest link**
+  </Step>
+  
+  <Step title="Configure Access">
+    - **Viewer** (read-only) or **Editor** (can upload new versions)
+    - Expiration: 1 day, 1 week, 30 days, or custom
+    - Password protection (optional)
+  </Step>
+  
+  <Step title="Copy & Send">
+    Copy link and send via any channel (email, Slack, etc.)
+  </Step>
+  
+  <Step title="Track Access">
+    View who accessed:
+    - File properties → **Guest access**
+    - See view count and last access time
+  </Step>
+</Steps>
+
+### Email as Attachment
+
+Send files via email:
+
+<Tabs>
+  <Tab title="Static Attachment">
+    Attach as regular file:
+    - Recipient gets copy (not linked to your file)
+    - No version updates
+    - Works with any email client
+    - File size limits apply
+  </Tab>
+  
+  <Tab title="Live Link">
+    Attach as Macro link:
+    - Recipient can view in browser
+    - Updates if you upload new version  
+    - Can grant edit access
+    - No file size limits (streams)
+  </Tab>
+</Tabs>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="File won't upload">
+    **Check:**
+    - File size under limit (100 MB default)
+    - File type is supported
+    - Internet connection stable
+    - Storage quota not exceeded
+    
+    **Fix:**
+    - Compress large files before upload
+    - Check **Settings** > **Storage** for quota
+    - Try again with better connection
+  </Accordion>
+  
+  <Accordion title="Can't find a file">
+    **Try:**
+    - Search by filename: `filename:document.pdf`
+    - Search by content: `type:file "search term"`
+    - Check original source (email, channel)
+    - Look in **Files** > **Recent**
+    
+    **If still missing:**
+    - Check trash (**Files** > **Trash**)
+    - File may not have auto-imported (check original email)
+  </Accordion>
+  
+  <Accordion title="PDF text not searchable">
+    **Cause:** PDF is image-based (scanned) and OCR failed.
+    
+    **Fix:**
+    - Re-upload higher quality scan
+    - Try manual OCR: Right-click → **Extract text**
+    - Wait a few minutes (OCR can be slow)
+    
+    **Check:** Open PDF, try to select text. If you can't, it needs OCR.
+  </Accordion>
+  
+  <Accordion title="Someone can't access a file I shared">
+    **Check:**
+    1. Did you @mention it or just send the link?
+       - @mention grants access, plain link doesn't
+    2. Are they in the channel? (if shared via channel)
+    3. Do they have explicit permissions?
+    
+    **Fix:** Right-click file → **Share** → Add their email with Viewer or Editor access.
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use @Mentions" icon="at">
+    Always @mention files instead of copying text or screenshots. Creates live links that update.
+  </Card>
+  
+  <Card title="Enable Auto-Import" icon="file-import">
+    Let all email attachments auto-import. Makes them searchable and accessible everywhere.
+  </Card>
+  
+  <Card title="Share in Channels" icon="users">
+    Upload files to team channels instead of DMing copies. Everyone gets access, no duplicates.
+  </Card>
+  
+  <Card title="Use Version History" icon="clock-rotate-left">
+    Upload new versions instead of creating "v2", "v3" files. Keeps links valid and history clean.
+  </Card>
+</CardGroup>
+
+<Check>
+  **Quick workflow:**
+  1. Receive email with PDF attachment → auto-imports
+  2. Search finds it: `type:pdf contract`
+  3. Share in channel: `Review this @contract.pdf`
+  4. Team can view, search, and annotate
+  5. No manual downloading or organizing needed
+</Check>

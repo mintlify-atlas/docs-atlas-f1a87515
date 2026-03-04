@@ -1,0 +1,110 @@
+---
+title: Backend Overview
+description: Architecture and structure of Macro's Rust backend
+---
+
+## Architecture
+
+Macro's backend is a Rust-based cloud storage microservices architecture built as a **Cargo workspace with 80+ crates**. The system handles document storage, processing, search, communication, and email functionality.
+
+## Workspace Structure
+
+The backend is organized as a monorepo using Cargo's workspace feature, enabling:
+
+- Shared dependency management across all crates
+- Consistent tooling and build configuration
+- Efficient incremental compilation
+- Code reuse through internal libraries
+
+### Service Categories
+
+The 80+ crates are organized into several functional categories:
+
+**Core Storage Services:**
+- `document-storage-service` - Main document storage API
+- `document-cognition-service` - Document analysis and processing
+- `search_service` - Search functionality across documents
+- `static_file_service` - Static file serving
+
+**Processing Services:**
+- `convert_service` - Document format conversion
+- `document-text-extractor` - Text extraction from documents
+- `search_processing_service` - Search indexing and processing
+
+**Communication Services:**
+- `comms_service` - Internal communication handling
+- `email_service` - Email processing and management
+- `notification_service` - User notifications
+
+**Infrastructure Services:**
+- `authentication_service` - User authentication
+- `connection_gateway` - WebSocket gateway for real-time connections
+- `contacts_service` - Contact management
+
+**Shared Libraries:**
+- Database clients (`macro_db_client`, `comms_db_client`, `email_db_client`, etc.)
+- AWS integrations (`s3_client`, `sqs_client`, `lambda_client`, etc.)
+- Common models (`model`, `models_email`, `models_search`, etc.)
+- Utilities (`macro_auth`, `macro_middleware`, `macro_env`, etc.)
+
+## Key Technologies
+
+- **Language:** Rust with async/await (Tokio runtime)
+- **Web Framework:** Axum 0.7 for HTTP services
+- **Database:** PostgreSQL with SQLx (compile-time query validation)
+- **Cloud:** AWS (S3, Lambda, SQS, DynamoDB, OpenSearch)
+- **Build System:** Just for task automation
+- **Infrastructure:** Pulumi for IaC
+
+## Data Storage
+
+The system uses multiple specialized databases:
+
+- **MacroDB** - Main PostgreSQL database for:
+  - Documents, users, and projects
+  - Communication data (messages, channels, participants)
+  - Email threads, messages, and metadata
+  - Notification preferences and history
+- **ContactsDB** - User connections and contacts
+
+**External Storage:**
+- S3 for document files and media
+- Redis for caching and session management
+- OpenSearch for full-text search indexing
+- DynamoDB for real-time connection tracking
+
+## Service Communication
+
+Services communicate through multiple mechanisms:
+
+- **HTTP APIs** - Synchronous service-to-service calls via internal clients
+- **SQS Queues** - Asynchronous message processing
+- **Lambda Triggers** - Event-driven serverless processing
+- **Redis** - Caching and session data
+- **WebSocket** - Real-time bidirectional communication via `connection_gateway`
+
+## Development Workflow
+
+When making changes to the backend:
+
+1. **Test individually** - Use `cargo test -p {service_name}` to test specific services
+2. **Build offline** - Use `SQLX_OFFLINE=true` to build without database connections
+3. **Validate queries** - SQLx validates all database queries at compile time
+4. **Format and lint** - Run `cargo fmt` and `just clippy` before committing
+
+## Prerequisites
+
+To work with the backend, you need:
+
+- Docker (for local databases)
+- `sqlx-cli` (for database migrations)
+- `just` (task runner)
+- Pulumi CLI (for infrastructure changes)
+- AWS CLI (for deployment)
+
+## Next Steps
+
+- [Services](/development/backend/services) - Deep dive into microservices architecture
+- [Database](/development/backend/database) - Database schema and migrations
+- [API Design](/development/backend/api) - API patterns and RPC communication
+- [Testing](/development/backend/testing) - Backend testing practices

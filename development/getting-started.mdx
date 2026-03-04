@@ -1,0 +1,420 @@
+---
+title: 'Getting Started'
+description: 'Set up your local development environment for Macro'
+---
+
+## Prerequisites
+
+Before you begin, ensure you have the following tools installed:
+
+<CardGroup cols={2}>
+  <Card title="Docker" icon="docker">
+    Required for running local databases and services
+  </Card>
+
+  <Card title="Doppler" icon="key">
+    Secret management for environment variables
+  </Card>
+
+  <Card title="AWS CLI" icon="aws">
+    For AWS service integration and deployment
+  </Card>
+
+  <Card title="Just" icon="terminal">
+    Task runner for development commands
+  </Card>
+
+  <Card title="sqlx-cli" icon="database">
+    Database migration management
+  </Card>
+
+  <Card title="Pulumi CLI" icon="cloud">
+    Infrastructure as code management
+  </Card>
+
+  <Card title="Rust & Cargo" icon="rust">
+    For building backend services
+  </Card>
+
+  <Card title="Bun" icon="package">
+    For frontend development
+  </Card>
+</CardGroup>
+
+## Initial Setup
+
+<Warning>
+  Currently, we only support running services against dev-assets. This is a work in progress.
+</Warning>
+
+### Step 1: Environment Configuration
+
+Export the SOPS KMS ARN for secret decryption:
+
+```bash
+export SOPS_KMS_ARN="arn:aws:kms:us-east-1:569036502058:key/mrk-cab29bf948044eb79005a81f48d40e93,arn:aws:kms:us-west-1:569036502058:key/mrk-cab29bf948044eb79005a81f48d40e93"
+```
+
+<Note>
+  You can skip this step if you're using `nix-shell`
+</Note>
+
+### Step 2: One-Command Setup
+
+Run the complete setup process:
+
+```bash
+just setup
+```
+
+This single command performs the following operations:
+
+<Steps>
+  <Step title="Environment Setup">
+    Decrypts and loads environment variables from encrypted `.env` files
+  </Step>
+  
+  <Step title="Network Creation">
+    Creates Docker networks (`databases` and `auth`) for service communication
+  </Step>
+  
+  <Step title="LocalStack Setup">
+    Starts LocalStack for local AWS emulation and creates:
+    - SQS queues for async processing
+    - DynamoDB tables for connection tracking
+    - S3 buckets for file storage
+  </Step>
+  
+  <Step title="Database Initialization">
+    Sets up PostgreSQL databases:
+    - Creates MacroDB
+    - Runs database migrations
+  </Step>
+  
+  <Step title="FusionAuth Setup">
+    Configures authentication service
+  </Step>
+  
+  <Step title="Service Images">
+    Builds Docker images for all dev services
+  </Step>
+</Steps>
+
+## Running the Application
+
+### Backend Services
+
+Start all backend services using Docker Compose:
+
+```bash
+just run_local
+```
+
+<Note>
+  By default, `convert_service` and `search_processing_service` are not run locally as they are not needed by the frontend when using dev assets.
+</Note>
+
+#### Rebuilding Services
+
+If you've updated a service and need to rebuild the Docker image:
+
+```bash
+just run_local --build
+```
+
+This triggers Docker Compose to update the containers with your changes.
+
+#### Stopping Services
+
+To stop all running services:
+
+```bash
+just stop-local
+```
+
+### Frontend Application
+
+Run the frontend pointed to local services:
+
+```bash
+cd js/app && bun i && just local
+```
+
+This will:
+1. Install frontend dependencies
+2. Start the development server
+3. Connect to locally running backend services
+
+## Database Management
+
+### Setting Up Individual Databases
+
+If you need to set up databases separately:
+
+```bash
+# Main database
+just rust/cloud-storage/macro_db_client/create_db
+just rust/cloud-storage/macro_db_client/migrate_db
+```
+
+Or use the helper commands:
+
+```bash
+just setup_local_dbs    # Sets up all local databases
+just run_dbs            # Runs database containers
+just stop-databases     # Stops database containers
+```
+
+### Running Databases Only
+
+To run just the databases without other services:
+
+```bash
+just run_dbs
+```
+
+To run them in detached mode:
+
+```bash
+just run_dbs -d
+```
+
+## LocalStack (Local AWS)
+
+Macro uses LocalStack to emulate AWS services locally:
+
+### Manual LocalStack Setup
+
+```bash
+just setup_localstack
+```
+
+This creates:
+
+**SQS Queues:**
+- `notification-queue`
+- `push-delivery-queue`
+- `email-service-backfill-queue`
+- `delete-chat-handler-queue`
+- `contacts-queue`
+- `convert-service-queue`
+- `search-event-queue`
+- And more...
+
+**DynamoDB Tables:**
+- `bulk-upload`
+- `connection-gateway-table`
+- `static-file-metadata`
+
+**S3 Buckets:**
+- `macro-email-attachments`
+- `doc-storage`
+- `docx-upload`
+- `static-file-storage`
+- `bulk-upload-staging`
+
+### Individual LocalStack Commands
+
+```bash
+just start_localstack      # Start LocalStack container
+just create_local_queues   # Create SQS queues
+just create_local_tables   # Create DynamoDB tables
+just create_local_buckets  # Create S3 buckets
+```
+
+## FusionAuth Setup
+
+Manage the authentication service:
+
+```bash
+just setup_fusionauth   # Setup and configure FusionAuth
+just stop_fusionauth    # Stop FusionAuth containers
+```
+
+## Building Services
+
+### Build All Services
+
+```bash
+just build
+```
+
+### Build Lambda Functions
+
+```bash
+just build_lambdas
+```
+
+Individual Lambda builds:
+- `just build_document_text_extractor`
+- `just build_docx_unzip_handler`
+- `just build_delete_chat_handler`
+- `just build_upload_extractor_lambda_handler`
+- `just build_email_suppression`
+- `just build_deleted_item_poller`
+
+### Type Check Without Building
+
+```bash
+just check
+```
+
+## Testing
+
+### Setup Test Environment
+
+<Steps>
+  <Step title="Start Databases">
+    ```bash
+    docker-compose up -d macrodb
+    ```
+  </Step>
+  
+  <Step title="Setup Test Env Files">
+    ```bash
+    just setup_test_envs
+    ```
+  </Step>
+  
+  <Step title="Initialize Databases">
+    ```bash
+    just initialize_dbs
+    ```
+  </Step>
+  
+  <Step title="Run Tests">
+    ```bash
+    just test
+    ```
+  </Step>
+</Steps>
+
+### Test Individual Services
+
+Test a specific service from the `rust/cloud-storage/` directory:
+
+```bash
+cargo test -p {service_name}
+```
+
+Example:
+
+```bash
+cargo test -p document-storage-service
+```
+
+## Environment Management
+
+Macro uses encrypted environment files managed by SOPS:
+
+### Get Environment Variables
+
+```bash
+just get_environment
+```
+
+This decrypts `.env-local.enc` and creates `.env` with your AWS credentials from `~/.aws/credentials`.
+
+### Edit Environment
+
+```bash
+just edit_environment
+```
+
+### Fix Environment (Re-encrypt)
+
+```bash
+just fix_environment
+```
+
+## Docker Cache Management
+
+### Clear All Build Cache
+
+```bash
+just docker_cache_clear
+```
+
+This forces a full cold rebuild on the next build.
+
+### Clear Only Rust Target Caches
+
+```bash
+just docker_cache_clear_targets
+```
+
+This keeps downloaded crates but forces recompilation.
+
+### View Cache Usage
+
+```bash
+just docker_cache_usage
+```
+
+## Cleanup
+
+Destroy all local infrastructure:
+
+```bash
+just destroy
+```
+
+This will:
+- Destroy FusionAuth infrastructure
+- Stop and remove all Docker containers
+- Remove Docker volumes
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="sitemap" href="/development/architecture">
+    Learn about the system architecture
+  </Card>
+  
+  <Card title="Directory Structure" icon="folder-tree" href="/development/directory-structure">
+    Understand the codebase organization
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+### Services Won't Start
+
+Ensure Docker networks are created:
+
+```bash
+just create_networks
+```
+
+### Database Connection Errors
+
+Verify databases are running:
+
+```bash
+docker ps | grep postgres
+```
+
+Restart databases if needed:
+
+```bash
+just stop-databases
+just run_dbs -d
+```
+
+### LocalStack Issues
+
+Restart LocalStack:
+
+```bash
+docker rm -f localstack
+just start_localstack
+```
+
+### Build Failures
+
+Clear Docker cache and rebuild:
+
+```bash
+just docker_cache_clear
+just build
+```

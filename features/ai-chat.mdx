@@ -1,0 +1,335 @@
+---
+title: AI Chat
+description: Query emails, messages, docs, and the web with context-aware AI
+---
+
+Macro's AI Chat gives you a powerful assistant that understands your entire workspace. Ask questions about your emails, documents, messages, and more - or let the AI search autonomously with agent mode.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Context-Aware" icon="brain">
+    AI understands your workspace and can reference your content
+  </Card>
+  <Card title="@Mention for Context" icon="at">
+    Attach documents, emails, or files to give AI specific context
+  </Card>
+  <Card title="Agent Mode" icon="robot">
+    AI can autonomously search and explore your workspace
+  </Card>
+  <Card title="Web Search" icon="globe">
+    Query both your workspace and the broader web
+  </Card>
+</CardGroup>
+
+## Getting Started with AI Chat
+
+<Steps>
+  <Step title="Open AI Chat">
+    Create a new chat or open an existing conversation
+  </Step>
+  <Step title="Ask a question">
+    Type your question or request in natural language
+  </Step>
+  <Step title="Add context (optional)">
+    @mention documents, emails, or files for specific context
+  </Step>
+  <Step title="Get AI response">
+    AI responds with information from your workspace or the web
+  </Step>
+</Steps>
+
+<Tip>
+AI Chat works best when you give it context. @mention relevant documents or describe what you're working on.
+</Tip>
+
+## What AI Chat Can Do
+
+### Answer Questions About Your Content
+
+Ask about information in your workspace:
+
+- "What did the team decide about the API redesign?"
+- "Summarize the customer feedback from last week"
+- "What are my tasks due this week?"
+- "Show me emails about the Q4 budget"
+
+### Summarize Documents
+
+Get quick summaries of long content:
+
+- "Summarize @quarterly-report"
+- "What are the key points in @meeting-notes?"
+- "Give me a brief overview of @design-doc"
+
+### Search Your Workspace
+
+Let AI search for you:
+
+- "Find documents about the authentication system"
+- "What tasks are assigned to me?"
+- "Show me recent channel messages about the launch"
+
+### Research and Web Search
+
+Get information from the web:
+
+- "What are best practices for API rate limiting?"
+- "Research competitors in the project management space"
+- "Find recent articles about CRDT technology"
+
+### Draft and Compose
+
+Get help writing:
+
+- "Draft an email to the customer about the delay"
+- "Help me write a project proposal"
+- "Suggest improvements to this paragraph"
+
+## Using @Mentions for Context
+
+One of the most powerful features is the ability to @mention content for context:
+
+### How to Add Context
+
+1. Type `@` in the chat input
+2. Search for and select documents, emails, files, or channels
+3. Selected items appear as attachments
+4. AI uses these attachments as context for its response
+
+### What You Can @Mention
+
+- **Documents**: Give AI access to specific docs
+- **Emails**: Reference email threads
+- **Files**: Attach PDFs, images, or other files
+- **Channels**: Reference channel conversations
+- **Tasks**: Provide task context
+- **Open Tabs**: Use `@open-tabs` to reference all your currently open documents
+
+<Note>
+When you @mention a document in AI chat, the AI reads and understands its full content. This is perfect for asking questions about specific documents.
+</Note>
+
+### Example: Document Analysis
+
+```
+User: @quarterly-report What were our revenue numbers for Q3?
+
+AI: Based on the quarterly report you attached, Q3 revenue was 
+$2.4M, representing 18% growth over Q2...
+```
+
+### Example: Multi-Document Context
+
+```
+User: Compare the approaches in @design-doc-v1 and @design-doc-v2
+
+AI: Looking at both documents, here are the key differences:
+1. V1 proposes a microservices architecture while V2 suggests...
+```
+
+## Agent Mode
+
+Agent mode allows AI to autonomously search and explore your workspace:
+
+### How Agent Mode Works
+
+<Steps>
+  <Step title="Enable agent mode">
+    Toggle agent mode in the chat settings
+  </Step>
+  <Step title="Ask your question">
+    AI will autonomously decide what to search for
+  </Step>
+  <Step title="Watch AI search">
+    See what the AI is searching and finding in real-time
+  </Step>
+  <Step title="Review results">
+    AI synthesizes findings into a comprehensive answer
+  </Step>
+</Steps>
+
+### When to Use Agent Mode
+
+- **Broad questions**: "What's the status of the redesign project?"
+- **Multi-source research**: "Compile all customer feedback on the new feature"
+- **Discovery**: "What have we discussed about performance optimization?"
+- **Synthesis**: "Summarize our approach to user authentication across all docs"
+
+<Info>
+Agent mode is powerful for exploratory questions where you're not sure exactly which documents or emails contain the information you need.
+</Info>
+
+## Chat Features
+
+### Message History
+
+All conversations are saved:
+- Return to previous chats anytime
+- Continue conversations across sessions
+- Reference earlier messages in new questions
+- Build on previous context
+
+### Edit Messages
+
+Refine your questions:
+- Edit previous messages to rephrase questions
+- AI will regenerate responses based on edits
+- Keep conversations clean and focused
+
+### Attachments
+
+Attach context to your questions:
+- Documents from your workspace
+- Email threads
+- Files and PDFs
+- Channel conversations
+- Multiple attachments per message
+
+### Model Selection
+
+Choose the right AI model:
+- Different models for different tasks
+- Balance speed vs. capability
+- Model settings persist per chat
+
+## Best Practices
+
+### Be Specific
+
+The more specific your question, the better the response:
+
+❌ "Tell me about the project"
+✅ "What are the key milestones in @project-roadmap and their deadlines?"
+
+### Provide Context
+
+Use @mentions to give AI the right context:
+
+❌ "What did we decide?"
+✅ "What did we decide in @meeting-notes about the API design?"
+
+### Break Down Complex Questions
+
+For complex requests, break them into steps:
+
+1. "Summarize @design-doc"
+2. "What are the main technical challenges?"
+3. "How do these compare to @alternative-approach?"
+
+### Use Follow-ups
+
+Build on AI responses with follow-up questions:
+
+1. "What are my tasks this week?"
+2. "Show me more details about the API task"
+3. "Who else is working on this?"
+
+<Tip>
+AI Chat remembers the conversation context, so you can ask follow-up questions without repeating context.
+</Tip>
+
+## Use Cases
+
+### Project Status Updates
+
+```
+What's the current status of the authentication project? Include 
+recent tasks, channel discussions, and any related documents.
+```
+
+### Customer Research
+
+```
+Summarize all customer feedback about the mobile app from the last 
+month. Include emails, channel messages, and support docs.
+```
+
+### Meeting Preparation
+
+```
+@meeting-agenda Help me prepare for tomorrow's meeting. What are 
+the key topics and what background should I review?
+```
+
+### Document Analysis
+
+```
+@contract Review this contract and highlight any unusual terms or 
+potential concerns.
+```
+
+### Research and Learning
+
+```
+I'm working on @api-redesign. Research best practices for RESTful 
+API design and versioning strategies.
+```
+
+## Privacy and Security
+
+### What AI Can Access
+
+- Only content you have permission to view
+- Only content you explicitly @mention or that agent mode finds
+- Your AI chats are private to you
+
+### What AI Cannot Access
+
+- Content you don't have permission to view
+- Other users' private chats
+- Content outside your workspace (unless web search is enabled)
+
+<Note>
+AI respects all Macro permissions. It can only access and reference content that you have permission to view.
+</Note>
+
+## Integration with Macro
+
+### With Search
+
+AI uses Macro's search to find relevant content:
+- Agent mode searches your workspace automatically
+- Results are synthesized into natural responses
+- You can see what AI found and searched
+
+### With Documents
+
+Create content from AI responses:
+- Save AI responses as documents
+- Reference AI chats from documents
+- Use AI to draft document sections
+
+### With Tasks
+
+Manage tasks with AI:
+- Ask about your tasks and deadlines
+- Get task summaries and status updates
+- Create tasks from AI conversation
+
+### With @Links
+
+AI understands your knowledge graph:
+- Follows @links in documents
+- Discovers related content
+- Builds on your connected information
+
+## Keyboard Shortcuts
+
+| Action | Shortcut | Description |
+|--------|----------|-------------|
+| Focus Input | `Enter` | Focus the chat input field |
+| Send Message | `Cmd+Enter` | Send your message |
+| New Chat | `Cmd+N` | Start a new conversation |
+| @ Mention | `@` | Open mentions menu for context |
+
+## Tips for Effective AI Chat
+
+<Tip>
+1. Start specific questions with @mentions to relevant documents
+2. Use agent mode for broad, exploratory questions
+3. Ask follow-up questions to dive deeper
+4. Edit and refine your questions if the response isn't quite right
+5. Attach multiple documents for comparative analysis
+6. Use natural language - AI understands conversational queries
+</Tip>

@@ -1,0 +1,374 @@
+---
+title: Component Structure
+description: Block architecture and UI component patterns
+---
+
+Macro's frontend uses a component architecture organized around document "blocks" and a shared design system.
+
+## Block Architecture
+
+Each document type in Macro is implemented as a separate **block** package:
+
+```
+packages/
+├── block-md/         # Markdown/rich text documents
+├── block-pdf/        # PDF viewer
+├── block-canvas/     # Canvas workspace
+├── block-code/       # Code editor
+├── block-chat/       # Chat interface
+├── block-email/      # Email viewer
+├── block-image/      # Image viewer
+├── block-video/      # Video player
+├── block-project/    # Project overview
+├── block-channel/    # Channel view
+├── block-theme/      # Theme customization
+└── block-unknown/    # Fallback for unknown types
+```
+
+### Block Pattern
+
+Each block is an **isolated package** with its own:
+
+- **Components** - UI specific to that document type
+- **Signals/Stores** - Local state management
+- **Styles** - Block-specific CSS
+- **Types** - TypeScript definitions
+
+### Example: Markdown Block Structure
+
+```
+block-md/
+├── component/
+│   ├── Block.tsx           # Main entry component
+│   ├── Notebook.tsx        # Editor container
+│   ├── TopBar.tsx          # Toolbar
+│   └── FindAndReplace.tsx  # Search UI
+├── comments/
+│   ├── CommentMargin.tsx   # Comment sidebar
+│   └── commentStore.ts     # Comment state
+├── signal/
+│   └── markdownBlockData.ts # Block-level state
+└── definition.ts           # Type definitions
+```
+
+### Block Entry Point
+
+From `packages/block-md/component/Block.tsx`:
+
+```tsx
+import { DocumentBlockContainer } from '@core/component/DocumentBlockContainer';
+import { CustomScrollbar } from '@core/component/CustomScrollbar';
+import { useBlockId } from '@core/block';
+import { Suspense, Show, createSignal } from 'solid-js';
+
+export default function BlockMarkdown() {
+  const [scrollRef, setScrollRef] = createSignal<HTMLDivElement>();
+  const blockId = useBlockId();
+
+  return (
+    <DocumentBlockContainer>
+      <div class="w-full h-full flex flex-col">
+        <TopBar />
+        
+        <div class="w-full grow overflow-hidden">
+          <div
+            class="w-full h-full overflow-auto"
+            ref={setScrollRef}
+          >
+            <Suspense>
+              <Notebook />
+            </Suspense>
+          </div>
+          <CustomScrollbar scrollContainer={scrollRef} />
+        </div>
+      </div>
+    </DocumentBlockContainer>
+  );
+}
+```
+
+**Key patterns:**
+
+- Wrapped in `DocumentBlockContainer` from core
+- Uses `Suspense` for async loading
+- Manages scroll container refs
+- Integrates core components like `CustomScrollbar`
+
+## Core Components
+
+The `core/` package provides shared components used across blocks:
+
+### Layout Components
+
+**DocumentBlockContainer**
+```tsx
+import { DocumentBlockContainer } from '@core/component/DocumentBlockContainer';
+
+<DocumentBlockContainer>
+  {/* Block content */}
+</DocumentBlockContainer>
+```
+
+Provides standard block layout and context.
+
+**CustomScrollbar**
+```tsx
+import { CustomScrollbar } from '@core/component/CustomScrollbar';
+
+const [scrollRef, setScrollRef] = createSignal<HTMLDivElement>();
+
+<div ref={setScrollRef}>
+  {/* Scrollable content */}
+</div>
+<CustomScrollbar scrollContainer={scrollRef} />
+```
+
+Custom scrollbar implementation for consistent UX.
+
+**ClippedPanel**
+```tsx
+import { ClippedPanel } from '@core/component/ClippedPanel';
+
+<ClippedPanel>
+  {/* Panel content with clipped corners */}
+</ClippedPanel>
+```
+
+### UI Primitives
+
+**Button (from ui package)**
+```tsx
+import { Button } from '@ui/components/Button';
+
+<Button variant="primary" tooltip="Save document">
+  Save
+</Button>
+
+<Button variant="secondary" showChevron>
+  Options
+</Button>
+
+<Button variant="destructive">
+  Delete
+</Button>
+```
+
+See [SolidJS Patterns](/development/frontend/solidjs) for composition examples.
+
+**Tooltip**
+```tsx
+import { Tooltip } from 'core/component/Tooltip';
+
+<Tooltip tooltip="Helpful hint">
+  <button>Hover me</button>
+</Tooltip>
+```
+
+**CircleSpinner**
+```tsx
+import { CircleSpinner } from '@core/component/CircleSpinner';
+
+<CircleSpinner /> // Loading indicator
+```
+
+### Dialog Components
+
+Macro uses [@corvu](https://corvu.dev/) for accessible dialogs:
+
+```tsx
+import { DialogWrapper } from '@core/component/DialogWrapper';
+
+<DialogWrapper
+  open={isOpen()}
+  onOpenChange={setIsOpen}
+  title="Confirm Delete"
+>
+  <p>Are you sure?</p>
+  <Button onClick={handleDelete}>Delete</Button>
+</DialogWrapper>
+```
+
+## Design System
+
+The `ui/` package contains design system primitives:
+
+```
+ui/
+├── components/
+│   ├── Button.tsx
+│   ├── BrightJoins.tsx
+│   └── GlitchText.tsx
+└── utils/
+    └── classname.ts  # cn() utility
+```
+
+### Styling Utilities
+
+**Class Merging**
+```typescript
+import { cn } from '@ui/utils/classname';
+
+const className = cn(
+  'base-class',
+  isActive && 'active-class',
+  props.class // User overrides
+);
+```
+
+Uses `tailwind-merge` to properly merge Tailwind classes.
+
+### Icon System
+
+Macro uses Phosphor icons:
+
+```tsx
+import CaretDown from '@phosphor-icons/core/regular/caret-down.svg';
+
+<CaretDown class="w-4 h-4" />
+```
+
+Custom icons in `macro-icons/` package.
+
+## Component Composition
+
+### Prefer Composition Over Props
+
+From the code style guide:
+
+```tsx
+// ✅ Good - Flexible composition
+const Card: ParentComponent = (props) => {
+  return (
+    <div class="card">
+      {props.children}
+    </div>
+  );
+};
+
+// Usage - Compose freely
+<Card>
+  <Header title="My Card" />
+  <Content>{data}</Content>
+  <Footer>
+    <Button>Action</Button>
+  </Footer>
+</Card>
+```
+
+```tsx
+// ❌ Avoid - Too many specific props
+const Card = (props: {
+  headerTitle: string;
+  content: JSX.Element;
+  footerButton: string;
+  onFooterClick: () => void;
+}) => {
+  // Too rigid, hard to extend
+};
+```
+
+### Example: Modals Provider
+
+From `block-md`:
+
+```tsx
+const ModalsProvider: ParentComponent = (props) => {
+  return (
+    <>
+      {props.children}
+      <FindModal />
+      <ImageModal />
+      <LinkModal />
+    </>
+  );
+};
+
+// Usage
+<ModalsProvider>
+  <TopBar />
+  <Notebook />
+</ModalsProvider>
+```
+
+Provider pattern for shared modal state without prop drilling.
+
+## Block State Management
+
+### Block Data Signals
+
+```typescript
+import { blockDataSignalAs, createBlockStore } from '@core/block';
+
+// Typed block data signal
+export const blockDataSignal = blockDataSignalAs<MarkdownData>('md');
+
+// Block-scoped store
+type MdData = {
+  editor?: LexicalEditor;
+  notebook?: HTMLElement;
+  scrollContainer?: HTMLElement;
+};
+
+export const mdStore = createBlockStore<MdData>({});
+```
+
+### Accessing Block Context
+
+```typescript
+import { useBlockId } from '@core/block';
+
+const Component = () => {
+  const blockId = useBlockId();
+  
+  // Use blockId to fetch data, track analytics, etc.
+};
+```
+
+## Accessibility
+
+Macro uses [@kobalte/core](https://kobalte.dev/) for accessible components:
+
+```typescript
+import { Dialog } from '@kobalte/core';
+import { Tooltip } from '@kobalte/core';
+```
+
+Ensure all interactive components:
+- Support keyboard navigation
+- Include ARIA labels
+- Have proper focus management
+- Work with screen readers
+
+## Performance Patterns
+
+### Virtualization
+
+For long lists, use `virtua` or `@tanstack/solid-virtual`:
+
+```typescript
+import { createVirtualizer } from '@tanstack/solid-virtual';
+
+const virtualizer = createVirtualizer({
+  count: items.length,
+  getScrollElement: () => scrollRef(),
+  estimateSize: () => 50,
+});
+```
+
+### Lazy Loading
+
+```tsx
+import { lazy } from 'solid-js';
+
+const HeavyComponent = lazy(() => import('./HeavyComponent'));
+
+<Suspense fallback={<CircleSpinner />}>
+  <HeavyComponent />
+</Suspense>
+```
+
+## Related Resources
+
+- [SolidJS Patterns](/development/frontend/solidjs)
+- [Lexical Editor](/development/frontend/editor)
+- [Frontend Overview](/development/frontend/overview)

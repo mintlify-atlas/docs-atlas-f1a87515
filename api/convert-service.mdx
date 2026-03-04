@@ -1,0 +1,423 @@
+---
+title: Convert Service API
+description: Document format conversion service for DOCX, PDF, and other file types
+---
+
+## Overview
+
+The Convert Service provides document format conversion capabilities using LibreOffice bindings. It processes conversion requests from SQS queues and supports bidirectional conversion between multiple document formats.
+
+**Key Features:**
+- Multi-format document conversion
+- DOCX to PDF conversion
+- PDF to DOCX conversion  
+- Queue-based async processing
+- S3 integration for file storage
+
+**Architecture:**
+- Internal-only API (requires internal auth)
+- SQS queue consumer for async jobs
+- LibreOffice bindings for conversion
+- Process isolation via fork for stability
+
+---
+
+## Convert Document
+
+Convert a document from one format to another.
+
+<Note>
+  This is an **internal-only endpoint** requiring internal API authentication.
+</Note>
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://internal.macro.com/internal/convert \
+  -H "X-Internal-API-Key: YOUR_INTERNAL_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fromBucket": "macro-documents",
+    "fromKey": "uploads/document.docx",
+    "toBucket": "macro-documents",
+    "toKey": "converted/document.pdf"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://internal.macro.com/internal/convert', {
+  method: 'POST',
+  headers: {
+    'X-Internal-API-Key': 'YOUR_INTERNAL_KEY',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    fromBucket: 'macro-documents',
+    fromKey: 'uploads/document.docx',
+    toBucket: 'macro-documents',
+    toKey: 'converted/document.pdf'
+  })
+});
+
+const result = await response.json();
+```
+</CodeGroup>
+
+<ParamField body="fromBucket" type="string" required>
+  Source S3 bucket containing the input file
+</ParamField>
+
+<ParamField body="fromKey" type="string" required>
+  S3 key path to the source file. File extension determines source format
+</ParamField>
+
+<ParamField body="toBucket" type="string" required>
+  Destination S3 bucket for converted file
+</ParamField>
+
+<ParamField body="toKey" type="string" required>
+  S3 key path for output file. File extension determines target format
+</ParamField>
+
+<ResponseField name="success" type="boolean">
+  Whether conversion completed successfully
+</ResponseField>
+
+---
+
+## Supported Formats
+
+The Convert Service supports conversion between these formats:
+
+### Document Formats
+
+| Format | Extension | Input | Output | Notes |
+|--------|-----------|-------|--------|-------|
+| **Microsoft Word** | `.docx` | ✓ | ✓ | Modern Word format |
+| **PDF** | `.pdf` | ✓ | ✓ | Portable Document Format |
+| **Rich Text** | `.rtf` | ✓ | ✓ | Cross-platform text |
+| **OpenDocument** | `.odt` | ✓ | ✓ | Open standard format |
+| **Plain Text** | `.txt` | ✓ | ✓ | Unformatted text |
+| **HTML** | `.html` | ✓ | ✓ | Web format |
+
+### Common Conversions
+
+<AccordionGroup>
+  <Accordion title="DOCX to PDF">
+    High-fidelity conversion preserving formatting, fonts, and layout.
+    
+    ```json
+    {
+      "fromKey": "docs/report.docx",
+      "toKey": "pdfs/report.pdf"
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="PDF to DOCX">
+    Converts PDF to editable Word document. Quality depends on PDF structure.
+    
+    ```json
+    {
+      "fromKey": "pdfs/contract.pdf",
+      "toKey": "docs/contract.docx"
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="DOCX to HTML">
+    Exports Word document as web-ready HTML.
+    
+    ```json
+    {
+      "fromKey": "docs/article.docx",
+      "toKey": "web/article.html"
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Queue-Based Processing
+
+The Convert Service primarily operates as an SQS queue consumer for asynchronous conversions.
+
+### Queue Message Format
+
+<CodeGroup>
+```json SQS Message Body
+{
+  "fromBucket": "macro-documents",
+  "fromKey": "uploads/original.docx",
+  "toBucket": "macro-documents",
+  "toKey": "converted/original.pdf"
+}
+```
+
+```json Message Attributes
+{
+  "job_id": {
+    "StringValue": "job_abc123",
+    "DataType": "String"
+  }
+}
+```
+</CodeGroup>
+
+### Processing Flow
+
+1. **Receive**: Consumer polls SQS queue for conversion jobs
+2. **Download**: Fetch source file from S3 bucket
+3. **Convert**: Process file using LibreOffice bindings in isolated fork
+4. **Upload**: Write converted file to destination S3 bucket
+5. **Notify**: For DOCX conversions, invoke WebSocket lambda with result
+6. **Cleanup**: Delete temporary files and acknowledge SQS message
+
+### DOCX Upload Notifications
+
+When converting DOCX files, the service sends completion notifications:
+
+<CodeGroup>
+```json Success Notification
+{
+  "jobId": "job_abc123",
+  "status": "Completed",
+  "jobType": "docx_upload",
+  "data": {
+    "error": false,
+    "data": {
+      "converted": true,
+      "bomParts": []
+    }
+  }
+}
+```
+
+```json Failure Notification
+{
+  "jobId": "job_abc123",
+  "status": "Failed",
+  "jobType": "docx_upload",
+  "data": {
+    "error": true,
+    "message": "error converting document"
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## Conversion Process
+
+### Process Isolation
+
+Conversions run in forked child processes for stability:
+
+- **Fork**: Parent spawns isolated child process
+- **Convert**: Child loads LibreOffice and performs conversion
+- **Exit**: Child exits with status code (0 = success)
+- **Monitor**: Parent waits for completion with 30-second timeout
+
+This prevents LibreOffice crashes from affecting the main service.
+
+### Timeout Handling
+
+Conversions have a **30-second timeout**:
+
+- If conversion exceeds timeout, child process is killed
+- Temporary files are cleaned up
+- SQS message is released back to queue for retry
+
+### Temporary Files
+
+Each conversion creates a temporary workspace:
+
+```
+./{job_id}/
+├── IN.{source_format}   # Downloaded source file
+└── OUT.{target_format}  # Generated output file
+```
+
+Workspaces are cleaned up after conversion (success or failure).
+
+---
+
+## Error Handling
+
+### Common Errors
+
+<ResponseField name="error" type="string">
+  Error description
+</ResponseField>
+
+| Error | Cause | Resolution |
+|-------|-------|------------|
+| `unable to get file type` | Invalid file extension | Ensure file has valid extension |
+| `unable to get lok filter` | Unsupported conversion | Check supported formats |
+| `unable to get object from S3` | Source file not found | Verify S3 bucket and key |
+| `conversion failed` | LibreOffice error | Check file format validity |
+| `fork failed` | System resource error | Retry or contact support |
+
+### Retry Strategy
+
+Failed conversions follow SQS retry policy:
+
+1. Message returns to queue after visibility timeout
+2. Up to 3 retry attempts
+3. Dead letter queue after max retries
+4. Manual inspection for persistent failures
+
+---
+
+## Performance Considerations
+
+### Conversion Time
+
+Typical conversion times:
+
+- Small files (< 1 MB): 1-3 seconds
+- Medium files (1-10 MB): 3-10 seconds  
+- Large files (10-50 MB): 10-30 seconds
+- Files > 50 MB: May timeout (30s limit)
+
+### Concurrency
+
+- Multiple workers process queue in parallel
+- Each worker handles one conversion at a time
+- Fork isolation prevents interference between jobs
+
+### Resource Usage
+
+- CPU-intensive during conversion
+- Temporary disk space: ~3x source file size
+- Memory: ~500MB per LibreOffice instance
+
+---
+
+## Backfill Operations
+
+### Backfill DOCX
+
+Bulk conversion endpoint for batch processing (internal only).
+
+```bash
+curl -X POST https://internal.macro.com/internal/backfill/docx \
+  -H "X-Internal-API-Key: YOUR_INTERNAL_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "items": [
+      {
+        "fromBucket": "macro-documents",
+        "fromKey": "batch/doc1.docx",
+        "toBucket": "macro-converted",
+        "toKey": "batch/doc1.pdf"
+      }
+    ]
+  }'
+```
+
+<ParamField body="items" type="array" required>
+  Array of conversion requests to process
+</ParamField>
+
+Backfill operations queue multiple conversions for batch processing.
+
+---
+
+## Integration Example
+
+### Triggering Conversion from Another Service
+
+<CodeGroup>
+```javascript Node.js with SQS
+import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
+
+const sqs = new SQSClient({ region: 'us-east-1' });
+
+async function queueConversion(fromKey, toKey) {
+  const jobId = generateJobId();
+  
+  await sqs.send(new SendMessageCommand({
+    QueueUrl: process.env.CONVERT_QUEUE_URL,
+    MessageBody: JSON.stringify({
+      fromBucket: 'macro-documents',
+      fromKey,
+      toBucket: 'macro-documents',
+      toKey
+    }),
+    MessageAttributes: {
+      job_id: {
+        StringValue: jobId,
+        DataType: 'String'
+      }
+    }
+  }));
+  
+  return jobId;
+}
+
+// Queue a DOCX to PDF conversion
+const jobId = await queueConversion(
+  'uploads/report.docx',
+  'converted/report.pdf'
+);
+```
+
+```python Python with boto3
+import boto3
+import uuid
+
+sqs = boto3.client('sqs', region_name='us-east-1')
+
+def queue_conversion(from_key: str, to_key: str) -> str:
+    job_id = str(uuid.uuid4())
+    
+    sqs.send_message(
+        QueueUrl=os.environ['CONVERT_QUEUE_URL'],
+        MessageBody=json.dumps({
+            'fromBucket': 'macro-documents',
+            'fromKey': from_key,
+            'toBucket': 'macro-documents',
+            'toKey': to_key
+        }),
+        MessageAttributes={
+            'job_id': {
+                'StringValue': job_id,
+                'DataType': 'String'
+            }
+        }
+    )
+    
+    return job_id
+
+# Queue conversion
+job_id = queue_conversion(
+    'uploads/report.docx',
+    'converted/report.pdf'
+)
+```
+</CodeGroup>
+
+---
+
+## Monitoring
+
+### Metrics
+
+Key metrics to monitor:
+
+- **Queue depth**: Number of pending conversions
+- **Processing time**: Average conversion duration
+- **Error rate**: Failed conversion percentage
+- **Timeout rate**: Conversions exceeding 30s
+
+### Logging
+
+Conversion logs include:
+
+- `job_id`: Unique conversion identifier
+- `from_key`: Source file path
+- `to_key`: Destination file path
+- `status_code`: Child process exit code
+- Processing timestamps and durations

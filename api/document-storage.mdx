@@ -1,0 +1,533 @@
+---
+title: "Document Storage Service API"
+description: "API reference for the Document Storage Service - manage documents, projects, annotations, and document permissions"
+---
+
+## Overview
+
+The Document Storage Service is the core service for managing documents, projects, folders, and related functionality in Macro. It provides comprehensive document lifecycle management including creation, editing, versioning, permissions, and deletion.
+
+**Base URL:** `/v1` (versioned API)
+
+**Authentication:** All endpoints require JWT authentication via the `Authorization` header, except internal endpoints which use `x-document-storage-service-auth-key`.
+
+## Core Concepts
+
+### Documents
+
+Documents are the primary content type in Macro. Each document has:
+- Unique document ID (UUID)
+- Version history with document version IDs
+- S3-backed storage with CloudFront CDN delivery
+- Permissions and access control via entity access service
+- Processing pipeline for text extraction and indexing
+
+### Projects
+
+Projects are containers that organize documents and folders hierarchically. They support:
+- Nested folder structures
+- Sharing and permissions
+- Bulk operations
+
+### Annotations
+
+Documents support collaborative annotations including:
+- Anchors (highlighted regions)
+- Comments on specific document sections
+- Mentions of users
+
+---
+
+## Documents
+
+### Create Document
+
+```http
+POST /v1/documents
+```
+
+Creates a new document. The service validates user quotas and permissions before creation.
+
+<ParamField body="name" type="string" required>
+  Document name
+</ParamField>
+
+<ParamField body="project_id" type="string">
+  Parent project ID (optional)
+</ParamField>
+
+<ParamField body="content" type="object">
+  Initial document content in Macro's internal format
+</ParamField>
+
+<ResponseField name="id" type="string">
+  Unique document ID
+</ResponseField>
+
+<ResponseField name="version_id" type="string">
+  Initial version ID for the document
+</ResponseField>
+
+<ResponseField name="created_at" type="datetime">
+  Creation timestamp
+</ResponseField>
+
+<CodeGroup>
+```json Request
+{
+  "name": "Product Roadmap",
+  "project_id": "550e8400-e29b-41d4-a716-446655440000",
+  "content": {
+    "blocks": [],
+    "version": "1.0"
+  }
+}
+```
+
+```json Response
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "version_id": "v1_abc123",
+  "created_at": "2026-03-04T10:30:00Z"
+}
+```
+</CodeGroup>
+
+### Get Document
+
+```http
+GET /v1/documents/{document_id}
+```
+
+Retrieves document metadata and content. Returns a signed CloudFront URL for accessing the document.
+
+<ParamField path="document_id" type="string" required>
+  Document ID
+</ParamField>
+
+<ResponseField name="id" type="string">
+  Document ID
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Document name
+</ResponseField>
+
+<ResponseField name="url" type="string">
+  Signed CloudFront URL for document access (expires based on configuration)
+</ResponseField>
+
+<ResponseField name="version_id" type="string">
+  Current version ID
+</ResponseField>
+
+<ResponseField name="owner_id" type="string">
+  Document owner user ID
+</ResponseField>
+
+### Save Document
+
+```http
+PUT /v1/documents/{document_id}
+```
+
+Saves changes to a document, creating a new version.
+
+<ParamField path="document_id" type="string" required>
+  Document ID to update
+</ParamField>
+
+<ParamField body="content" type="object" required>
+  Updated document content
+</ParamField>
+
+<ParamField body="version_id" type="string" required>
+  Current version ID (for optimistic locking)
+</ParamField>
+
+<Note>
+The service uses optimistic locking - if the version_id doesn't match the current version, the save will fail to prevent conflicts.
+</Note>
+
+### Edit Document Metadata
+
+```http
+PATCH /v1/documents/{document_id}
+```
+
+Updates document metadata (name, project, etc.) without creating a new version.
+
+<ParamField path="document_id" type="string" required>
+  Document ID
+</ParamField>
+
+<ParamField body="name" type="string">
+  New document name
+</ParamField>
+
+<ParamField body="project_id" type="string">
+  Move to different project
+</ParamField>
+
+### Copy Document
+
+```http
+POST /v1/documents/{document_id}/copy
+```
+
+Creates a copy of the document with all content and formatting.
+
+<ParamField path="document_id" type="string" required>
+  Document ID to copy
+</ParamField>
+
+<ParamField body="name" type="string">
+  Name for the copied document (defaults to "Copy of [original name]")
+</ParamField>
+
+<ParamField body="project_id" type="string">
+  Project ID for the copy
+</ParamField>
+
+<Warning>
+Copying large documents may take several seconds. The user's quota is checked before copying.
+</Warning>
+
+### Delete Document
+
+```http
+DELETE /v1/documents/{document_id}
+```
+
+Soft-deletes a document (moves to trash). Can be reverted with the revert endpoint.
+
+<ParamField path="document_id" type="string" required>
+  Document ID to delete
+</ParamField>
+
+### Permanently Delete Document
+
+```http
+DELETE /v1/documents/{document_id}/permanent
+```
+
+Permanently deletes a document and all its versions from storage.
+
+<Warning>
+This operation is irreversible. All document data including versions and S3 objects will be deleted.
+</Warning>
+
+### Revert Document Deletion
+
+```http
+PUT /v1/documents/{document_id}/revert_delete
+```
+
+Restores a soft-deleted document from trash.
+
+### Get Document Text
+
+```http
+GET /v1/documents/{document_id}/text
+```
+
+Retrieves the extracted plain text content of a document (used for search indexing).
+
+<ResponseField name="text" type="string">
+  Extracted plain text content
+</ResponseField>
+
+### Export Document
+
+```http
+GET /v1/documents/{document_id}/export
+```
+
+Exports the document in various formats (PDF, DOCX, etc.).
+
+<ParamField query="format" type="string" required>
+  Export format: `pdf`, `docx`, `html`
+</ParamField>
+
+### Get Document Permissions
+
+```http
+GET /v1/documents/{document_id}/permissions
+```
+
+Retrieves the list of users/teams with access to the document.
+
+<ResponseField name="permissions" type="array">
+  Array of permission objects with user/team ID and access level
+</ResponseField>
+
+### Get Document Access Token
+
+```http
+GET /v1/documents/{document_id}/{version_id}/key
+```
+
+Generates a JWT token for accessing a specific document version via CloudFront.
+
+<ParamField path="document_id" type="string" required>
+  Document ID
+</ParamField>
+
+<ParamField path="version_id" type="string" required>
+  Document version ID
+</ParamField>
+
+<ResponseField name="token" type="string">
+  JWT access token
+</ResponseField>
+
+<ResponseField name="expires_at" type="datetime">
+  Token expiration time
+</ResponseField>
+
+---
+
+## Projects
+
+### Create Project
+
+```http
+POST /v1/projects
+```
+
+Creates a new project or folder.
+
+<ParamField body="name" type="string" required>
+  Project name
+</ParamField>
+
+<ParamField body="parent_id" type="string">
+  Parent project ID (for nested folders)
+</ParamField>
+
+### Get Project
+
+```http
+GET /v1/projects/{project_id}
+```
+
+Retrieves project metadata and contents (documents and subfolders).
+
+### Update Project
+
+```http
+PATCH /v1/projects/{project_id}
+```
+
+Updates project metadata.
+
+### Delete Project
+
+```http
+DELETE /v1/projects/{project_id}
+```
+
+Deletes a project and optionally all contained documents.
+
+<ParamField query="delete_contents" type="boolean">
+  If true, deletes all documents within the project
+</ParamField>
+
+---
+
+## Annotations
+
+### Create Anchor
+
+```http
+POST /v1/annotations/anchors
+```
+
+Creates a highlight anchor on a document.
+
+<ParamField body="document_id" type="string" required>
+  Document ID
+</ParamField>
+
+<ParamField body="start_offset" type="integer" required>
+  Character offset where anchor starts
+</ParamField>
+
+<ParamField body="end_offset" type="integer" required>
+  Character offset where anchor ends
+</ParamField>
+
+<ParamField body="color" type="string">
+  Highlight color (hex code)
+</ParamField>
+
+### Create Comment
+
+```http
+POST /v1/annotations/comments
+```
+
+Adds a comment to a document or anchor.
+
+<ParamField body="document_id" type="string" required>
+  Document ID
+</ParamField>
+
+<ParamField body="anchor_id" type="string">
+  Anchor ID (if commenting on a highlight)
+</ParamField>
+
+<ParamField body="content" type="string" required>
+  Comment text
+</ParamField>
+
+<ParamField body="mentions" type="array">
+  Array of user IDs to mention
+</ParamField>
+
+### Get Annotations
+
+```http
+GET /v1/annotations
+```
+
+Retrieves all annotations for a document.
+
+<ParamField query="document_id" type="string" required>
+  Document ID
+</ParamField>
+
+---
+
+## Activity & History
+
+### Get Recent Activity
+
+```http
+GET /v1/activity
+```
+
+Retrieves recent activity across documents.
+
+<ParamField query="limit" type="integer">
+  Number of activity items to return (default: 50)
+</ParamField>
+
+<ParamField query="offset" type="integer">
+  Pagination offset
+</ParamField>
+
+### Get Document History
+
+```http
+GET /v1/history
+```
+
+Retrieves version history for documents.
+
+<ParamField query="document_id" type="string">
+  Filter by specific document
+</ParamField>
+
+---
+
+## Error Codes
+
+The Document Storage Service uses standard HTTP status codes:
+
+- `200` - Success
+- `201` - Resource created
+- `400` - Bad request (validation error)
+- `401` - Unauthorized (invalid or missing JWT)
+- `403` - Forbidden (insufficient permissions)
+- `404` - Document not found
+- `409` - Conflict (version mismatch in optimistic locking)
+- `413` - Payload too large (quota exceeded)
+- `500` - Internal server error
+
+### Service-Specific Error Codes
+
+<ResponseField name="error_code" type="string">
+  Machine-readable error code
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable error description
+</ResponseField>
+
+**Common Error Codes:**
+
+- `QUOTA_EXCEEDED` - User has exceeded document quota
+- `VERSION_CONFLICT` - Document was modified by another user
+- `DOCUMENT_PROCESSING` - Document is still being processed
+- `INVALID_DOCUMENT_ID` - Malformed document ID
+- `PERMISSION_DENIED` - User lacks required permissions
+
+<CodeGroup>
+```json Error Response
+{
+  "error_code": "QUOTA_EXCEEDED",
+  "message": "You have reached your document limit of 100 documents. Please upgrade your plan."
+}
+```
+</CodeGroup>
+
+---
+
+## Data Models
+
+### Document
+
+```typescript
+interface Document {
+  id: string;              // UUID
+  name: string;
+  owner_id: string;        // User ID
+  project_id?: string;     // Parent project
+  version_id: string;      // Current version
+  created_at: string;      // ISO 8601 datetime
+  updated_at: string;      // ISO 8601 datetime
+  deleted_at?: string;     // Soft delete timestamp
+  size_bytes: number;      // Document size
+  processing_status: "pending" | "completed" | "failed";
+}
+```
+
+### Project
+
+```typescript
+interface Project {
+  id: string;
+  name: string;
+  owner_id: string;
+  parent_id?: string;      // For nested folders
+  created_at: string;
+  updated_at: string;
+  document_count: number;
+}
+```
+
+### Annotation
+
+```typescript
+interface Anchor {
+  id: string;
+  document_id: string;
+  user_id: string;
+  start_offset: number;
+  end_offset: number;
+  color?: string;
+  created_at: string;
+}
+
+interface Comment {
+  id: string;
+  document_id: string;
+  anchor_id?: string;
+  user_id: string;
+  content: string;
+  mentions: string[];      // User IDs
+  created_at: string;
+  updated_at: string;
+}
+```

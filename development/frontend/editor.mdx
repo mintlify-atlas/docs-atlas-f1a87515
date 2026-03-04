@@ -1,0 +1,391 @@
+---
+title: Lexical Editor
+description: Rich text editing with Lexical and CRDT collaboration
+---
+
+Macro uses [Lexical](https://lexical.dev/) for rich text editing with real-time collaboration powered by [loro-crdt](https://loro.dev/).
+
+## Architecture
+
+### Lexical Core Package
+
+The `lexical-core/` package defines shared editor infrastructure:
+
+```
+lexical-core/
+├── nodes/              # Custom Lexical nodes
+│   ├── CommentNode.ts
+│   ├── CustomCodeNode.ts
+│   ├── ContactMentionNode.ts
+│   └── ...
+├── plugins/            # Lexical plugins
+├── transformers/       # Markdown transformers
+├── utils/             # Editor utilities
+├── constants.ts       # Editor config
+├── node-list.ts       # Registered nodes
+└── README.md
+```
+
+From the README:
+
+> `lexical-core` defines the nodes, plugins, and transformers that are required for interoperability between our front end Lexical editors and the back end document transformation features. All files in this package should ONLY import from lexical or from other files in this package.
+
+**Key principle:** Lexical-core must remain isolated - no dependencies on app-specific code.
+
+## Custom Nodes
+
+### Node Structure
+
+Example from `packages/lexical-core/nodes/CommentNode.ts`:
+
+```typescript
+import { MarkNode, type SerializedMarkNode } from '@lexical/mark';
+import {
+  $applyNodeReplacement,
+  type EditorConfig,
+  type NodeKey,
+  type Spread,
+} from 'lexical';
+
+export type SerializedCommentNode = Spread<
+  {
+    threadId: number | undefined;
+    isDraft: boolean | undefined;
+  },
+  SerializedMarkNode
+>;
+
+export class CommentNode extends MarkNode {
+  __threadId: number | undefined;
+  __isDraft: boolean;
+
+  static getType(): string {
+    return 'comment-mark';
+  }
+
+  constructor(
+    ids: readonly string[],
+    key?: NodeKey,
+    threadId?: number,
+    isDraft?: boolean
+  ) {
+    super(ids, key);
+    this.__threadId = threadId;
+    this.__isDraft = isDraft ?? false;
+  }
+
+  // Serialization
+  exportJSON(): SerializedCommentNode {
+    return {
+      ...super.exportJSON(),
+      threadId: this.__threadId,
+      isDraft: this.__isDraft,
+    };
+  }
+
+  static importJSON(serializedNode: SerializedCommentNode): CommentNode {
+    const node = $createCommentNode({ ids: [] }).updateFromJSON(serializedNode);
+    return node;
+  }
+
+  // DOM rendering
+  createDOM(config: EditorConfig): HTMLElement {
+    const element = super.createDOM(config);
+    if (this.__threadId) {
+      element.dataset.threadId = this.__threadId.toString();
+    }
+    element.classList.add('comment');
+    element.classList.toggle('draft', this.__isDraft);
+    return element;
+  }
+
+  updateDOM(
+    prevNode: this,
+    element: HTMLElement,
+    config: EditorConfig
+  ): boolean {
+    const prevThreadId = prevNode.__threadId;
+    const nextThreadId = this.__threadId;
+    if (prevThreadId !== nextThreadId) {
+      element.dataset.threadId = nextThreadId?.toString();
+    }
+    element.classList.toggle('draft', this.__isDraft);
+    return super.updateDOM(prevNode, element, config);
+  }
+}
+
+// Factory function
+export function $createCommentNode(params: {
+  ids: readonly string[];
+  threadId?: number;
+  isDraft?: boolean;
+}): CommentNode {
+  return $applyNodeReplacement(
+    new CommentNode(params.ids, undefined, params.threadId)
+  );
+}
+
+// Type guard
+export function $isCommentNode(node: any): node is CommentNode {
+  return node instanceof CommentNode;
+}
+```
+
+### Node Requirements
+
+Custom nodes must implement:
+
+1. **Type identifier** - `static getType()`
+2. **Serialization** - `exportJSON()` and `static importJSON()`
+3. **DOM rendering** - `createDOM()` and `updateDOM()`
+4. **Factory function** - `$createNodeName()`
+5. **Type guard** - `$isNodeName()`
+
+## Version Management
+
+### Lexical Version Counter
+
+From `packages/core/component/LexicalMarkdown/version.ts`:
+
+```typescript
+/**
+ * This constant is used for versioning the markdown documents to stable node sets.
+ * Currently additional node types are causing data loss when an older editor (prod)
+ * opens a document with newer node types (one created on staging).
+ *
+ * Version 1.0 - July 18, 2025
+ * Version 1.1 - August 7, 2025. Added scale support to media nodes.
+ * Version 1.2 - Feb 3, 2026. Added theme-mention-node.
+ * Version 1.21 - Feb 4, 2026. Added fallback-xml tag node.
+ */
+export const MARKDOWN_VERSION_COUNTER = 1.21;
+
+export const STAGING_TAG = 'staging';
+```
+
+**CRITICAL:** If you create a Lexical Node or make breaking changes to a Lexical Node, you MUST:
+
+1. Increment `MARKDOWN_VERSION_COUNTER`
+2. Add a note documenting the change
+3. Ensure backward compatibility or migration path
+
+**Why:** Prevents data loss when older clients open documents with newer node types.
+
+## CRDT Collaboration
+
+### loro-crdt Integration
+
+Macro uses `loro-crdt` for real-time collaborative editing:
+
+```typescript
+import { LoroDoc, LoroText } from 'loro-crdt';
+```
+
+### Mirror Pattern
+
+The `loro-mirror/` package provides bidirectional sync:
+
+```typescript
+/**
+ * Mirror core functionality for bidirectional sync between app state and Loro CRDT
+ */
+export enum SyncDirection {
+  /**
+   * Changes coming from Loro to application state
+   */
+  FROM_LORO = 'FROM_LORO',
+  /**
+   * Changes coming from application to Loro
+   */
+  TO_LORO = 'TO_LORO',
+}
+```
+
+**Pattern:**
+1. User edits in Lexical editor
+2. Changes sync TO_LORO CRDT
+3. CRDT broadcasts to other clients
+4. Remote changes sync FROM_LORO to local editor
+
+### Conflict Resolution
+
+Loro CRDTs handle conflicts automatically:
+- **Concurrent edits** merge deterministically
+- **Last-write-wins** for scalar values
+- **Operational transforms** for text
+
+No manual conflict resolution needed.
+
+## Editor Plugins
+
+### Plugin Structure
+
+Lexical plugins are React-like components that run inside the editor:
+
+```typescript
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
+import { useEffect } from 'solid-js';
+
+export function MyPlugin() {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    return editor.registerCommand(
+      MY_COMMAND,
+      (payload) => {
+        // Handle command
+        return true;
+      },
+      COMMAND_PRIORITY_NORMAL
+    );
+  });
+
+  return null;
+}
+```
+
+### Common Plugins
+
+**History Plugin** - Undo/redo
+```typescript
+import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
+
+<HistoryPlugin />
+```
+
+**Markdown Plugin** - Markdown shortcuts
+```typescript
+import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
+
+<MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+```
+
+**Link Plugin** - Link editing
+```typescript
+import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
+
+<LinkPlugin />
+```
+
+## Editor State Management
+
+### Editor Instance
+
+From `block-md/signal/markdownBlockData.ts`:
+
+```typescript
+import type { LexicalEditor } from 'lexical';
+
+type MdData = {
+  editor?: LexicalEditor;
+  titleEditor?: LexicalEditor;
+  plugins?: PluginManager;
+  selection?: Store<SelectionData>;
+};
+
+export const mdStore = createBlockStore<MdData>({});
+```
+
+**Pattern:**
+- Store editor instance in block store
+- Access from any component in block
+- Separate editors for title and content
+
+### Reading Editor State
+
+```typescript
+import { $getRoot, $getSelection } from 'lexical';
+
+const editor = mdStore.get().editor;
+
+editor?.getEditorState().read(() => {
+  const root = $getRoot();
+  const selection = $getSelection();
+  // Read state
+});
+```
+
+### Updating Editor State
+
+```typescript
+editor?.update(() => {
+  const root = $getRoot();
+  // Mutate state
+  root.append($createParagraphNode());
+});
+```
+
+**Important:** Always use `update()` for mutations, `read()` for reads.
+
+## Markdown Transformers
+
+Transformers convert between Lexical and Markdown:
+
+```typescript
+import { TRANSFORMERS } from '@lexical/markdown';
+import { $convertFromMarkdownString } from '@lexical/markdown';
+
+// Import markdown
+editor.update(() => {
+  $convertFromMarkdownString(markdownString, TRANSFORMERS);
+});
+
+// Export markdown
+const markdown = $convertToMarkdownString(TRANSFORMERS);
+```
+
+Custom transformers in `lexical-core/transformers/`.
+
+## Accessibility
+
+Lexical provides built-in accessibility:
+
+- ARIA labels and roles
+- Keyboard navigation
+- Screen reader support
+- Focus management
+
+Ensure custom nodes add appropriate ARIA attributes:
+
+```typescript
+createDOM(config: EditorConfig): HTMLElement {
+  const element = super.createDOM(config);
+  element.setAttribute('role', 'comment');
+  element.setAttribute('aria-label', 'Comment thread');
+  return element;
+}
+```
+
+## Performance Optimization
+
+### Throttle Updates
+
+```typescript
+import { throttle } from 'lodash-es';
+
+const saveToBackend = throttle((editorState) => {
+  // Save logic
+}, 1000);
+
+editor.registerUpdateListener(({ editorState }) => {
+  saveToBackend(editorState);
+});
+```
+
+### Lazy Load Heavy Nodes
+
+```typescript
+const CodeNode = lazy(() => import('./nodes/CodeNode'));
+```
+
+## Testing Editors
+
+See [Testing](/development/frontend/testing) for testing strategies including Playwright setup.
+
+## Related Resources
+
+- [Frontend Overview](/development/frontend/overview)
+- [SolidJS Patterns](/development/frontend/solidjs)
+- [Component Structure](/development/frontend/components)
+- [Lexical Documentation](https://lexical.dev/)
+- [Loro CRDT Documentation](https://loro.dev/)

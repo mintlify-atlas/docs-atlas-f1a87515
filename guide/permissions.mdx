@@ -1,0 +1,420 @@
+---
+title: Permissions
+description: Understanding Macro's permission model and sharing
+---
+
+Macro uses an intuitive permission model where permissions inherit from channels. Send a document to someone and they automatically get access - no complex sharing dialogs needed.
+
+## Core Principles
+
+<CardGroup cols={2}>
+  <Card title="Channel Inheritance" icon="sitemap">
+    Permissions automatically inherit from the channel where content is shared. If you can see the channel, you can see what's in it.
+  </Card>
+  
+  <Card title="Automatic Access" icon="wand-magic-sparkles">
+    Send a document to someone via email or channel and they immediately get access. No separate sharing step required.
+  </Card>
+  
+  <Card title="Bidirectional Links" icon="link">
+    When you @mention a doc or task, recipients can access it through the reference, maintaining permission context.
+  </Card>
+  
+  <Card title="Explicit Overrides" icon="user-lock">
+    You can always set explicit permissions on individual items when needed for sensitive content.
+  </Card>
+</CardGroup>
+
+## Permission Types
+
+Macro has two main permission mechanisms that work together:
+
+### Access Levels
+
+Direct permissions assigned to specific entities:
+
+<Tabs>
+  <Tab title="Owner">
+    **Full control** over the item
+    
+    - Edit content and metadata
+    - Delete the item
+    - Manage permissions
+    - Transfer ownership
+    
+    Automatically assigned to the creator.
+  </Tab>
+  
+  <Tab title="Editor">
+    **Can modify** the item
+    
+    - Edit content and metadata
+    - Add comments and @mentions
+    - Share with others (adds as Viewer)
+    - Cannot delete or change ownership
+  </Tab>
+  
+  <Tab title="Viewer">
+    **Read-only access**
+    
+    - View content
+    - Add comments
+    - Create personal copies
+    - Cannot edit or share
+  </Tab>
+  
+  <Tab title="No Access">
+    **Cannot see the item**
+    
+    - Item doesn't appear in search
+    - @mentions don't resolve
+    - Direct links show permission error
+  </Tab>
+</Tabs>
+
+### Channel Roles
+
+Permissions inherited from channel membership:
+
+<AccordionGroup>
+  <Accordion title="Channel Owner">
+    Created the channel or was transferred ownership.
+    
+    **Can:**
+    - Edit channel settings and description
+    - Add/remove members
+    - Delete the channel
+    - Post messages and share files
+    - All content shared in channel is accessible to owners
+  </Accordion>
+  
+  <Accordion title="Channel Member">
+    Added to the channel by owner or admin.
+    
+    **Can:**
+    - View all channel history
+    - Post messages and replies
+    - Share files and links
+    - Access all documents shared in channel
+    - @mention channel members
+    
+    **Cannot:**
+    - Add/remove members
+    - Change channel settings
+    - Delete the channel
+  </Accordion>
+  
+  <Accordion title="Channel Guest">
+    Limited access to specific threads or content.
+    
+    **Can:**
+    - View threads they're invited to
+    - Reply in those threads
+    - Access files shared directly with them
+    
+    **Cannot:**
+    - See full channel history
+    - Browse all channel content
+    - Add other members
+  </Accordion>
+</AccordionGroup>
+
+## How Inheritance Works
+
+<Steps>
+  <Step title="Document Created">
+    When you create a document, you're automatically the **Owner** with full permissions.
+  </Step>
+  
+  <Step title="Shared in Channel">
+    You share the document in a team channel by:
+    - Posting a link: `Check out this proposal @doc-link`
+    - Uploading directly to channel
+    - @mentioning it in a message
+  </Step>
+  
+  <Step title="Permissions Inherit">
+    Everyone in the channel automatically gets access based on their channel role:
+    
+    - **Channel Owners** → Editor access to document
+    - **Channel Members** → Viewer access to document  
+    - **Channel Guests** → No access (unless explicitly granted)
+  </Step>
+  
+  <Step title="Updates Sync">
+    If you add someone to the channel later, they immediately get access to all documents previously shared there.
+  </Step>
+</Steps>
+
+<Info>
+  You can override inherited permissions on any document. For example, make a specific doc "View Only" even for channel owners, or give a guest Editor access to one file.
+</Info>
+
+## Sharing Documents
+
+### Quick Share (Cmd+S)
+
+The fastest way to share any document:
+
+```
+1. Open document
+2. Press Cmd+S (Ctrl+S on Windows/Linux)
+3. Type recipient name or channel
+4. Press Enter
+```
+
+**What happens:**
+- Document is posted to the channel or sent via email
+- Recipients automatically get access based on context
+- You can add a message: `@john Here's the Q4 proposal`
+
+### Email Sharing
+
+When you attach a document to an email:
+
+<Tabs>
+  <Tab title="Internal Recipients">
+    Recipients in your workspace get:
+    - **Viewer** access by default
+    - Can open document in Macro
+    - Real-time collaboration if upgraded to Editor
+    - Attachment updates if doc changes
+  </Tab>
+  
+  <Tab title="External Recipients">
+    Recipients outside your workspace get:
+    - Static PDF or export (configurable)
+    - Optionally: Guest link with Viewer access
+    - Cannot see @mentions or linked content
+    - Must accept guest invite for live access
+  </Tab>
+</Tabs>
+
+### @Mention Sharing
+
+When you @mention a document in a message:
+
+```markdown
+# Example in channel:
+"Updated the roadmap @product-roadmap to include Q2 features"
+
+# Example in email:
+"See the attached proposal @sales-proposal for details"
+```
+
+**Permission behavior:**
+- If channel members don't have access → automatically granted **Viewer** access
+- If recipient already has access → no change
+- @mention creates bidirectional link you can trace back
+
+## Managing Permissions
+
+### View Current Permissions
+
+<Tabs>
+  <Tab title="From Document">
+    1. Open document
+    2. Click share icon (top-right) or press **Cmd+Shift+S**
+    3. See list of who has access and their permission level
+    4. View inherited permissions from channels (in gray)
+  </Tab>
+  
+  <Tab title="From Channel">
+    1. Open channel settings
+    2. Click **Members** tab
+    3. See all members and their roles
+    4. View what documents are shared in this channel
+  </Tab>
+</Tabs>
+
+### Change Permissions
+
+<Steps>
+  <Step title="Open Share Dialog">
+    Press **Cmd+Shift+S** or click the share icon on any document, email, or file.
+  </Step>
+  
+  <Step title="Find User or Channel">
+    Search for the person or channel whose access you want to change.
+  </Step>
+  
+  <Step title="Set Permission Level">
+    Click the dropdown next to their name:
+    - **Owner** - Full control
+    - **Editor** - Can edit
+    - **Viewer** - Read only
+    - **Remove** - Revoke access
+  </Step>
+  
+  <Step title="Save Changes">
+    Changes apply immediately. Users see updated access in real-time.
+  </Step>
+</Steps>
+
+<Warning>
+  If someone has access via channel inheritance, removing their direct permission doesn't revoke access - they still have it through the channel. You must remove them from the channel or override channel permissions.
+</Warning>
+
+## Permission Resolution
+
+When multiple permissions apply, Macro uses the **most permissive** access:
+
+<CodeGroup>
+```plaintext Example 1: Channel + Direct
+Channel permission: Viewer (inherited)
+Direct permission:  Editor (explicit)
+Final access:       Editor ✓
+```
+
+```plaintext Example 2: Multiple Channels  
+Marketing channel:  Viewer (via membership)
+Leadership channel: Editor (via membership)
+Final access:       Editor ✓
+```
+
+```plaintext Example 3: Explicit Override
+Channel permission: Editor (inherited)
+Direct permission:  Viewer (explicit override)
+Final access:       Viewer ✓
+(Explicit always wins)
+```
+</CodeGroup>
+
+## Special Cases
+
+### Files from Emails
+
+<Accordion title="Auto-Import Behavior">
+  When you receive an email with attachments:
+  
+  1. **Attachments auto-import** to your file storage
+  2. **You're the Owner** of the imported file
+  3. **Original sender does NOT get access** (it's now your file)
+  4. If you share the file back to them, you grant explicit access
+  
+  This prevents accidental permission leakage from external emails.
+</Accordion>
+
+### PDF and Media Files
+
+<Accordion title="Permission Checking">
+  PDFs and media files follow the same permission model:
+  
+  - **Full-text search** only surfaces files you have access to
+  - **Embedded in documents** - viewers can see preview if they have file access
+  - **Viewer access** allows downloading the file
+  - **Editor access** allows replacing file (keeps same file ID)
+</Accordion>
+
+### @Mentions and Links
+
+<Accordion title="Smart Link Behavior">
+  When you @mention or link to content:
+  
+  **If recipient has no access:**
+  - Link shows as reference with request access button
+  - You get notification: "John requested access to @proposal"
+  - You can grant access directly from notification
+  
+  **If recipient has access:**  
+  - Link is live and clickable
+  - Shows preview on hover
+  - Bidirectional reference is created
+</Accordion>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Channels for Teams" icon="users">
+    Create channels for teams or projects. Share documents there once - everyone gets access automatically.
+  </Card>
+  
+  <Card title="Default to Viewer" icon="eye">
+    When in doubt, grant Viewer access. It's easy to upgrade to Editor later if needed.
+  </Card>
+  
+  <Card title="Review Channel Members" icon="list-check">
+    Periodically review channel membership. Removing someone from a channel revokes inherited access to all channel content.
+  </Card>
+  
+  <Card title="Explicit for Sensitive Content" icon="lock">
+    For sensitive documents, set explicit permissions instead of relying on channel inheritance.
+  </Card>
+</CardGroup>
+
+### Security Tips
+
+<Warning>
+  **Before sharing sensitive content:**
+  
+  1. Check current permissions: **Cmd+Shift+S**
+  2. Review channel members if sharing via channel
+  3. Consider explicit "Viewer" lock for read-only access
+  4. Use expiring guest links for external sharing
+</Warning>
+
+<Check>
+  **Good permission hygiene:**
+  
+  - Remove people from channels when they leave projects
+  - Audit owner/editor access on sensitive docs monthly  
+  - Use guest access for external collaborators (auto-expires)
+  - Set channel defaults: public vs private, member vs guest default
+</Check>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Someone can't access a document I shared">
+    **Check:**
+    1. Are they in the channel? (Check channel members)
+    2. Do they have explicit "No Access" set? (Overrides channel permission)
+    3. Is the document shared in a private channel they're not in?
+    4. Did you share via @mention or just send the link? (@mention grants access, plain link doesn't)
+    
+    **Fix:** Open share dialog (**Cmd+Shift+S**) and explicitly grant them Viewer or Editor access.
+  </Accordion>
+  
+  <Accordion title="I removed someone but they still have access">
+    **Likely cause:** They have access through multiple paths:
+    - Direct permission + channel permission
+    - Member of multiple channels with the content
+    - Owner/Editor on parent workspace
+    
+    **Fix:** Check all permission sources in the share dialog and remove each one.
+  </Accordion>
+  
+  <Accordion title="Channel members can't edit a shared doc">
+    **Cause:** Channel membership grants Viewer access by default, not Editor.
+    
+    **Fix:** Either:
+    - Grant explicit Editor access to specific people
+    - Change channel settings to grant Editor by default
+    - Make them channel Owners (if appropriate)
+  </Accordion>
+  
+  <Accordion title="External recipient says link is broken">
+    **Cause:** External users don't have automatic access.
+    
+    **Fix:** 
+    1. Open share dialog (**Cmd+Shift+S**)
+    2. Add their email
+    3. Set to "Viewer" or "Editor"
+    4. Enable "Send invite email"
+    
+    They'll receive a guest invite link.
+  </Accordion>
+</AccordionGroup>
+
+## API and Integrations
+
+When using Macro's API or integrations, permissions work the same way:
+
+- **API calls** respect user permissions (calls are made as authenticated user)
+- **Bots and integrations** can be granted service account access
+- **Webhooks** only fire for events the user has access to
+- **Export/import** preserves permission metadata
+
+<Info>
+  See the [API Documentation](/api/overview) for details on permission checking and service accounts.
+</Info>

@@ -1,0 +1,621 @@
+---
+title: "Communications Service API"
+description: "API reference for the Communications Service - real-time messaging, channels, and team collaboration"
+---
+
+## Overview
+
+The Communications Service (Comms Service) provides real-time messaging and collaboration features for Macro. It manages channels, direct messages, message threads, and real-time notifications via WebSocket connections.
+
+**Base URL:** `/comms`
+
+**Authentication:** JWT authentication required via the `Authorization` header.
+
+## Core Concepts
+
+### Channels
+
+Channels are conversation spaces that can be:
+- **Direct Messages (DM):** 1-on-1 conversations between two users
+- **Private:** Invitation-only group conversations
+- **Organization:** Company-wide or team channels
+
+Each channel maintains:
+- Participant list
+- Message history
+- Typing indicators
+- Read receipts
+- Activity tracking
+
+### Messages
+
+Messages support:
+- Rich text content
+- User mentions (`@user`)
+- Document/entity attachments
+- Reactions (emoji)
+- Threading (replies to messages)
+- Real-time delivery via WebSocket
+
+### Participants
+
+Users who are members of a channel. Participants can:
+- Send and receive messages
+- Add/remove other participants (based on permissions)
+- Leave channels
+- See typing indicators
+
+---
+
+## Channels
+
+### Create Channel
+
+```http
+POST /comms/channels
+```
+
+Creates a new channel of any type.
+
+<ParamField body="name" type="string">
+  Channel name (optional for DMs, required for other types)
+</ParamField>
+
+<ParamField body="channel_type" type="string" required>
+  Channel type: `dm`, `private`, or `organization`
+</ParamField>
+
+<ParamField body="participants" type="array" required>
+  Array of participant user IDs (must start with "macro|")
+</ParamField>
+
+<ResponseField name="id" type="string">
+  Created channel ID (UUID)
+</ResponseField>
+
+<Note>
+Participants are automatically filtered to only include valid Macro user IDs. At least one participant is required.
+</Note>
+
+<CodeGroup>
+```json Request - Private Channel
+{
+  "name": "Product Team",
+  "channel_type": "private",
+  "participants": [
+    "macro|user1@example.com",
+    "macro|user2@example.com",
+    "macro|user3@example.com"
+  ]
+}
+```
+
+```json Request - Direct Message
+{
+  "channel_type": "dm",
+  "participants": [
+    "macro|colleague@example.com"
+  ]
+}
+```
+
+```json Response
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+</CodeGroup>
+
+### Get or Create DM
+
+```http
+POST /comms/channels/get_or_create_dm
+```
+
+Finds an existing DM channel with a user, or creates one if it doesn't exist.
+
+<ParamField body="participant_id" type="string" required>
+  User ID to start/find DM with
+</ParamField>
+
+<ResponseField name="id" type="string">
+  Channel ID
+</ResponseField>
+
+<ResponseField name="created" type="boolean">
+  Whether a new channel was created
+</ResponseField>
+
+### Get or Create Private Channel
+
+```http
+POST /comms/channels/get_or_create_private
+```
+
+Finds an existing private channel with the exact participant set, or creates one.
+
+<ParamField body="participants" type="array" required>
+  Array of participant user IDs
+</ParamField>
+
+<ParamField body="name" type="string">
+  Channel name (if creating)
+</ParamField>
+
+### Get Channel
+
+```http
+GET /comms/channels/{channel_id}
+```
+
+Retrieves channel details and recent messages.
+
+<ParamField path="channel_id" type="string" required>
+  Channel ID
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  Number of messages to return (default: 50)
+</ParamField>
+
+<ParamField query="before" type="string">
+  Message ID to fetch messages before (for pagination)
+</ParamField>
+
+<ResponseField name="id" type="string">
+  Channel ID
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Channel name
+</ResponseField>
+
+<ResponseField name="channel_type" type="string">
+  Channel type
+</ResponseField>
+
+<ResponseField name="participants" type="array">
+  Array of participant objects
+</ResponseField>
+
+<ResponseField name="messages" type="array">
+  Recent messages in the channel
+</ResponseField>
+
+<ResponseField name="created_at" type="datetime">
+  Channel creation time
+</ResponseField>
+
+<ResponseField name="updated_at" type="datetime">
+  Last message time
+</ResponseField>
+
+### Update Channel
+
+```http
+PATCH /comms/channels/{channel_id}
+```
+
+Updates channel metadata (name, description, etc.).
+
+<ParamField path="channel_id" type="string" required>
+  Channel ID
+</ParamField>
+
+<ParamField body="name" type="string">
+  New channel name
+</ParamField>
+
+<ParamField body="description" type="string">
+  Channel description
+</ParamField>
+
+### Delete Channel
+
+```http
+DELETE /comms/channels/{channel_id}
+```
+
+Deletes a channel and all its messages.
+
+<ParamField path="channel_id" type="string" required>
+  Channel ID
+</ParamField>
+
+<Warning>
+Deleting a channel is permanent and cannot be undone. All messages and metadata will be removed.
+</Warning>
+
+### Join Channel
+
+```http
+POST /comms/channels/{channel_id}/join
+```
+
+Joins an organization channel.
+
+<ParamField path="channel_id" type="string" required>
+  Channel ID
+</ParamField>
+
+### Leave Channel
+
+```http
+POST /comms/channels/{channel_id}/leave
+```
+
+Leaves a channel (removes current user as participant).
+
+### Add Participants
+
+```http
+POST /comms/channels/{channel_id}/participants
+```
+
+Adds users to a channel.
+
+<ParamField path="channel_id" type="string" required>
+  Channel ID
+</ParamField>
+
+<ParamField body="user_ids" type="array" required>
+  Array of user IDs to add
+</ParamField>
+
+### Remove Participants
+
+```http
+DELETE /comms/channels/{channel_id}/participants
+```
+
+Removes users from a channel.
+
+<ParamField path="channel_id" type="string" required>
+  Channel ID
+</ParamField>
+
+<ParamField body="user_ids" type="array" required>
+  Array of user IDs to remove
+</ParamField>
+
+### Get Channel Metadata
+
+```http
+GET /comms/channels/{channel_id}/metadata
+```
+
+Retrieves channel metadata without messages (lightweight).
+
+### Get Channel Transcript
+
+```http
+GET /comms/channels/{channel_id}/transcript
+```
+
+Exports full channel message history.
+
+<ParamField path="channel_id" type="string" required>
+  Channel ID
+</ParamField>
+
+<ParamField query="format" type="string">
+  Export format: `json`, `txt`, `html` (default: json)
+</ParamField>
+
+---
+
+## Messages
+
+### Post Message
+
+```http
+POST /comms/channels/{channel_id}/message
+```
+
+Sends a message to a channel.
+
+<ParamField path="channel_id" type="string" required>
+  Channel ID
+</ParamField>
+
+<ParamField body="content" type="string" required>
+  Message content (supports markdown)
+</ParamField>
+
+<ParamField body="mentions" type="array">
+  Array of mention objects
+</ParamField>
+
+<ParamField body="attachments" type="array">
+  Array of attachment objects (documents, links, etc.)
+</ParamField>
+
+<ParamField body="thread_id" type="string">
+  Parent message ID if replying in a thread
+</ParamField>
+
+<ParamField body="nonce" type="string">
+  Client-generated nonce for deduplication
+</ParamField>
+
+<ResponseField name="id" type="string">
+  Created message ID
+</ResponseField>
+
+<ResponseField name="nonce" type="string">
+  Echo back the nonce for client correlation
+</ResponseField>
+
+<Note>
+Messages are delivered in real-time to all channel participants via WebSocket. The service also handles:
+- Updating channel share permissions for attached documents
+- Sending notifications to mentioned users
+- Indexing the message for search
+- Updating channel activity tracking
+</Note>
+
+<CodeGroup>
+```json Request
+{
+  "content": "Hey team, check out this design document @jane",
+  "mentions": [
+    {
+      "entity_type": "user",
+      "entity_id": "macro|jane@example.com",
+      "display_text": "@jane"
+    }
+  ],
+  "attachments": [
+    {
+      "entity_type": "document",
+      "entity_id": "doc_123",
+      "name": "Design Mockups.pdf"
+    }
+  ],
+  "nonce": "client_msg_12345"
+}
+```
+
+```json Response
+{
+  "id": "msg_789",
+  "nonce": "client_msg_12345"
+}
+```
+</CodeGroup>
+
+### Update Message
+
+```http
+PATCH /comms/channels/{channel_id}/message/{message_id}
+```
+
+Edits a message (must be the sender).
+
+<ParamField path="channel_id" type="string" required>
+  Channel ID
+</ParamField>
+
+<ParamField path="message_id" type="string" required>
+  Message ID
+</ParamField>
+
+<ParamField body="content" type="string" required>
+  Updated message content
+</ParamField>
+
+### Delete Message
+
+```http
+DELETE /comms/channels/{channel_id}/message/{message_id}
+```
+
+Deletes a message (must be the sender or channel owner).
+
+### Post Reaction
+
+```http
+POST /comms/channels/{channel_id}/reaction
+```
+
+Adds an emoji reaction to a message.
+
+<ParamField path="channel_id" type="string" required>
+  Channel ID
+</ParamField>
+
+<ParamField body="message_id" type="string" required>
+  Message ID to react to
+</ParamField>
+
+<ParamField body="emoji" type="string" required>
+  Emoji character or code
+</ParamField>
+
+### Post Typing Indicator
+
+```http
+POST /comms/channels/{channel_id}/typing
+```
+
+Sends a typing indicator (broadcast to other participants via WebSocket).
+
+<ParamField path="channel_id" type="string" required>
+  Channel ID
+</ParamField>
+
+<ParamField body="is_typing" type="boolean" required>
+  Whether user is currently typing
+</ParamField>
+
+### Get Message with Context
+
+```http
+GET /comms/channels/messages/context
+```
+
+Retrieves a message with surrounding context (useful for deep links).
+
+<ParamField query="message_id" type="string" required>
+  Message ID
+</ParamField>
+
+<ParamField query="context_size" type="integer">
+  Number of messages before/after to include (default: 10)
+</ParamField>
+
+---
+
+## Mentions
+
+### Get Mentions
+
+```http
+GET /comms/channels/{channel_id}/mentions
+```
+
+Retrieves all messages in a channel that mention the current user.
+
+<ParamField path="channel_id" type="string" required>
+  Channel ID
+</ParamField>
+
+---
+
+## Attachments
+
+### Get Attachment References
+
+```http
+GET /comms/attachments/references
+```
+
+Finds all channels where a specific document/entity has been shared.
+
+<ParamField query="entity_id" type="string" required>
+  Entity ID (e.g., document ID)
+</ParamField>
+
+<ParamField query="entity_type" type="string" required>
+  Entity type (e.g., "document")
+</ParamField>
+
+<ResponseField name="channels" type="array">
+  Array of channel IDs where the entity is referenced
+</ResponseField>
+
+---
+
+## Activity
+
+### Post Activity
+
+```http
+POST /comms/activity
+```
+
+Records user activity for analytics and presence tracking.
+
+<ParamField body="activity_type" type="string" required>
+  Type of activity: `view`, `interact`, `typing`
+</ParamField>
+
+<ParamField body="channel_id" type="string">
+  Channel ID (for channel-specific activity)
+</ParamField>
+
+---
+
+## Error Codes
+
+### Common Errors
+
+- `200` - Success
+- `201` - Created
+- `400` - Bad Request (invalid participants, empty content)
+- `401` - Unauthorized (not a channel member)
+- `404` - Channel or message not found
+- `500` - Internal Server Error
+
+### Service-Specific Errors
+
+- `INVALID_PARTICIPANTS` - Participants list is empty or contains invalid user IDs
+- `NOT_CHANNEL_MEMBER` - User is not a member of the channel
+- `CHANNEL_ARCHIVED` - Cannot perform action on archived channel
+- `MESSAGE_TOO_LONG` - Message exceeds maximum length
+- `PERMISSION_DENIED` - User lacks permission for this action
+
+<CodeGroup>
+```json Error Response
+{
+  "error": "INVALID_PARTICIPANTS",
+  "message": "participants must be a non-empty list of 'macro|<email>'"
+}
+```
+</CodeGroup>
+
+---
+
+## Data Models
+
+### Channel
+
+```typescript
+interface Channel {
+  id: string;                       // UUID
+  name?: string;
+  channel_type: "dm" | "private" | "organization";
+  owner_id: string;
+  org_id?: number;
+  created_at: string;
+  updated_at: string;
+  participants: Participant[];
+}
+```
+
+### Message
+
+```typescript
+interface Message {
+  id: string;                       // UUID
+  channel_id: string;
+  sender_id: string;
+  content: string;
+  thread_id?: string;               // Parent message for threaded replies
+  created_at: string;
+  updated_at?: string;
+  deleted_at?: string;
+}
+```
+
+### Participant
+
+```typescript
+interface Participant {
+  user_id: string;
+  channel_id: string;
+  joined_at: string;
+  last_read_at?: string;
+}
+```
+
+### Mention
+
+```typescript
+interface SimpleMention {
+  entity_type: string;              // "user", "document", etc.
+  entity_id: string;
+  display_text: string;             // Text shown in UI (e.g., "@username")
+}
+```
+
+### Attachment
+
+```typescript
+interface NewAttachment {
+  entity_type: string;              // "document", "link", etc.
+  entity_id: string;
+  name: string;                     // Display name
+  url?: string;                     // For link attachments
+}
+```

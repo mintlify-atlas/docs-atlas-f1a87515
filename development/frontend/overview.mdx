@@ -1,0 +1,157 @@
+---
+title: Frontend Overview
+description: Architecture and structure of Macro's frontend application
+---
+
+Macro's frontend is a modern SolidJS application bundled with Tauri for cross-platform desktop and mobile support.
+
+## Technology Stack
+
+The frontend uses:
+
+- **SolidJS** - Reactive UI framework
+- **Tauri** - Cross-platform desktop/mobile wrapper
+- **Vite** - Build tool and dev server
+- **Bun** - JavaScript runtime and package manager
+- **TypeScript** - Type-safe development
+- **Tailwind CSS** - Utility-first styling
+- **Tanstack Query** - Server state management
+- **Lexical** - Rich text editing framework
+- **loro-crdt** - CRDT-based collaboration
+
+## Monorepo Structure
+
+The frontend is organized as a Bun workspace monorepo at `js/app/`:
+
+```
+packages/
+├── app/              # Main Tauri application
+├── core/             # Core UI components and utilities
+├── ui/               # Design system components
+├── block-*/          # Document type implementations
+│   ├── block-md/     # Markdown editor
+│   ├── block-pdf/    # PDF viewer
+│   ├── block-canvas/ # Canvas workspace
+│   └── ...
+├── lexical-core/     # Shared Lexical nodes & plugins
+├── queries/          # Tanstack Query definitions
+├── service-clients/  # Generated API clients
+├── loro-mirror/      # CRDT sync layer
+└── ...
+```
+
+### Package Organization
+
+**Application Layer**
+- `app/` - Main Tauri app entry point, routing, and platform-specific code
+
+**UI Layer**
+- `core/` - Shared components like `CustomScrollbar`, `DocumentBlockContainer`, buttons
+- `ui/` - Design system primitives (`Button`, `Tooltip`, etc.)
+- `block-*/` - Isolated packages for each document type (markdown, PDF, canvas, etc.)
+
+**Data Layer**
+- `queries/` - All Tanstack Query hooks and cache management
+- `service-clients/` - Auto-generated API clients from OpenAPI specs
+- `loro-mirror/` - Bidirectional sync between app state and Loro CRDT
+
+**Editor Layer**
+- `lexical-core/` - Shared Lexical nodes, plugins, and transformers for interoperability
+
+## Tauri Integration
+
+Macro runs as both a web app and native app across platforms:
+
+### Platform Targets
+
+- **Web** - Traditional SPA served at `macro.com`
+- **Desktop** - macOS, Windows, Linux via Tauri
+- **Mobile** - iOS and Android via Tauri
+
+### Build Commands
+
+```bash
+# Development
+bun run dev              # Web (localhost:3000)
+cargo tauri dev          # Desktop
+cargo tauri android dev  # Android
+cargo tauri ios dev      # iOS
+
+# Production builds
+bun run build            # Web bundle
+cargo tauri build        # Desktop app
+```
+
+### Platform Detection
+
+Platform-specific builds use `VITE_PLATFORM` environment variable:
+
+```typescript
+// vite.config.ts determines platform
+VITE_PLATFORM=web | desktop | ios | android
+```
+
+The app package has separate Vite configs for each platform:
+- `vite.config.ts` (web)
+- `vite.desktop.config.ts`
+- `vite.ios.config.ts`
+- `vite.android.config.ts`
+
+## Development Workflow
+
+### Running the App
+
+```bash
+# Web development server
+bun run dev
+
+# Desktop app with hot reload
+cargo tauri dev
+```
+
+The app runs on `localhost:3000/app` by default.
+
+### Type Checking
+
+```bash
+bun run check
+```
+
+Runs TypeScript compiler in `--noEmit` mode to validate types across all packages.
+
+### Linting and Formatting
+
+```bash
+bun run lint     # Check code with Biome
+bun run format   # Auto-format with Biome
+bun run fix      # Auto-fix lint issues
+```
+
+Macro uses [Biome](https://biomejs.dev/) for fast linting and formatting.
+
+## Package Dependencies
+
+Packages reference each other using workspace protocol:
+
+```json
+{
+  "dependencies": {
+    "core": "workspace:*",
+    "@queries": "workspace:*"
+  }
+}
+```
+
+Key shared dependencies:
+- `solid-js` - SolidJS framework
+- `lexical` - Rich text editing
+- `loro-crdt` - CRDT collaboration
+- `@tanstack/solid-query` - Data fetching and caching
+- `@solidjs/router` - Client-side routing
+
+## Next Steps
+
+- [SolidJS Patterns](/development/frontend/solidjs) - Code style and reactive patterns
+- [Component Structure](/development/frontend/components) - Block architecture and UI components
+- [Lexical Editor](/development/frontend/editor) - Rich text editing implementation
+- [Testing](/development/frontend/testing) - Test setup and practices

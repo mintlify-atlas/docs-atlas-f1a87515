@@ -1,0 +1,484 @@
+---
+title: 'Authentication'
+description: 'Authentication flows, FusionAuth integration, and token management'
+---
+
+## Overview
+
+Macro uses **FusionAuth** for centralized authentication and authorization. The system supports multiple authentication methods including password-based login, passwordless email login, OAuth2 (Google, GitHub), and SSO.
+
+### Authentication Methods
+
+- **Password Login** - Email and password authentication
+- **Passwordless Login** - Magic link sent to email
+- **OAuth2** - Google and GitHub social login
+- **SSO** - Single sign-on for enterprise customers
+- **Session Codes** - Mobile app authentication via QR code/session exchange
+
+<Note>
+  All authentication flows return both an `access_token` (JWT) and a `refresh_token` for token renewal.
+</Note>
+
+## Token Types
+
+The authentication system uses multiple token types:
+
+### Access Token (JWT)
+
+Short-lived JWT token used to authenticate API requests.
+
+<ParamField path="access_token" type="string">
+  Bearer token for API authentication. Valid for a limited time (typically 15-60 minutes).
+</ParamField>
+
+**Format:**
+```
+Authorization: Bearer {access_token}
+```
+
+**Validation:**
+- Token is verified using JWT public keys
+- Expiration is checked on each request
+- User ID and permissions are extracted from claims
+
+### Refresh Token
+
+Long-lived token used to obtain new access tokens without re-authentication.
+
+<ParamField path="refresh_token" type="string">
+  Opaque token for refreshing access tokens. Valid for extended period (days/weeks).
+</ParamField>
+
+**Header:**
+```
+X-Macro-Refresh-Token: {refresh_token}
+```
+
+### Cookie-Based Auth
+
+By default, the web application uses **cookie-based authentication**:
+
+- Access and refresh tokens are stored in HTTP-only cookies
+- Requests automatically include credentials (`credentials: 'include'`)
+- Cookies are set on login and cleared on logout
+
+<Warning>
+  Cookies are HTTP-only and Secure (HTTPS-only in production) to prevent XSS attacks.
+</Warning>
+
+### Bearer Token Auth (Optional)
+
+For API clients and mobile apps, bearer token authentication is supported:
+
+```bash
+curl -H "Authorization: Bearer {access_token}" \
+     -H "X-Macro-Refresh-Token: {refresh_token}" \
+     https://api.macro.com/api/endpoint
+```
+
+## Authentication Flow
+
+### 1. Login
+
+**Endpoint:** `POST /login/password`
+
+<ParamField body="email" type="string" required>
+  User's email address (case-insensitive, stored lowercase)
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password
+</ParamField>
+
+**Request:**
+```json
+{
+  "email": "user@example.com",
+  "password": "securepassword"
+}
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "rt_abc123def456..."
+}
+```
+
+<ResponseField name="access_token" type="string">
+  JWT access token for API authentication
+</ResponseField>
+
+<ResponseField name="refresh_token" type="string">
+  Refresh token for obtaining new access tokens
+</ResponseField>
+
+**Cookies Set:**
+- `access_token` - HTTP-only, Secure, SameSite=Lax
+- `refresh_token` - HTTP-only, Secure, SameSite=Lax
+
+### 2. Token Refresh
+
+**Endpoint:** `POST /jwt/refresh`
+
+When an access token expires, use the refresh endpoint to obtain a new token pair:
+
+**Headers:**
+```
+Authorization: Bearer {expired_access_token}
+X-Macro-Refresh-Token: {refresh_token}
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "rt_xyz789ghi012..."
+}
+```
+
+<Note>
+  If the access token is still valid, the same tokens are returned without calling FusionAuth.
+</Note>
+
+**Refresh Flow:**
+1. Client detects expired access token (401 response or JWT expiry check)
+2. Extract tokens from cookies or headers
+3. POST to `/jwt/refresh` with both tokens
+4. FusionAuth validates refresh token and issues new token pair
+5. New cookies are set in response
+
+<Warning>
+  If the refresh token is invalid or expired, the user must re-authenticate. Return 401 Unauthorized.
+</Warning>
+
+### 3. Logout
+
+**Endpoint:** `POST /logout`
+
+Clears authentication cookies and optionally revokes tokens in FusionAuth.
+
+**Response:**
+- Cookies are cleared
+- Returns 200 OK
+
+## FusionAuth Integration
+
+Macro's authentication service acts as a proxy to FusionAuth:
+
+### Configuration
+
+<ParamField query="FUSIONAUTH_BASE_URL" type="string" required>
+  FusionAuth server URL (e.g., `https://auth.macro.com`)
+</ParamField>
+
+<ParamField query="FUSIONAUTH_TENANT_ID" type="string" required>
+  FusionAuth tenant identifier
+</ParamField>
+
+<ParamField query="FUSIONAUTH_CLIENT_ID" type="string" required>
+  OAuth2 client ID for the Macro application
+</ParamField>
+
+<ParamField query="FUSIONAUTH_CLIENT_SECRET_KEY" type="string" required>
+  Secret key name in AWS Secrets Manager
+</ParamField>
+
+<ParamField query="FUSIONAUTH_API_KEY_SECRET_KEY" type="string" required>
+  API key secret name for FusionAuth admin API calls
+</ParamField>
+
+### User Registration
+
+If a user attempts to login but is not registered in FusionAuth:
+
+1. User submits login credentials
+2. FusionAuth returns `UserNotRegistered` error
+3. Authentication service automatically registers the user
+4. Login is retried with the newly registered user
+
+<Note>
+  This auto-registration flow ensures seamless onboarding for new users.
+</Note>
+
+### Email Verification
+
+Users must verify their email before logging in:
+
+- On registration, FusionAuth sends verification email
+- Unverified users receive `401 Unauthorized` with message: `"user has not verified their primary email"`
+- Verification link redirects to `/email/verify/{token}`
+
+## JWT Token Structure
+
+Access tokens are JWTs signed with RS256 (RSA signature):
+
+### Claims
+
+<ResponseField name="sub" type="string">
+  Subject - User ID (UUID)
+</ResponseField>
+
+<ResponseField name="iss" type="string">
+  Issuer - FusionAuth tenant ID
+</ResponseField>
+
+<ResponseField name="aud" type="string">
+  Audience - Application client ID
+</ResponseField>
+
+<ResponseField name="exp" type="number">
+  Expiration timestamp (Unix epoch)
+</ResponseField>
+
+<ResponseField name="iat" type="number">
+  Issued at timestamp (Unix epoch)
+</ResponseField>
+
+<ResponseField name="roles" type="array">
+  User roles for authorization (e.g., `["user", "admin"]`)
+</ResponseField>
+
+### Token Validation
+
+The authentication service validates JWTs using:
+
+```rust
+macro_auth::middleware::decode_jwt::validate_macro_access_token(
+    &access_token,
+    &jwt_validation_args
+)
+```
+
+**Validation Steps:**
+1. Verify RS256 signature using public keys from FusionAuth
+2. Check token expiration (`exp` claim)
+3. Validate issuer and audience
+4. Extract user ID from `sub` claim
+
+<Warning>
+  JWT public keys are cached and periodically refreshed from FusionAuth's JWKS endpoint.
+</Warning>
+
+## OAuth2 Flows
+
+### Google OAuth
+
+**Endpoint:** `POST /oauth2/google`
+
+1. Client initiates Google OAuth flow
+2. User authenticates with Google
+3. Google redirects with authorization code
+4. Service exchanges code for Google tokens
+5. FusionAuth links or creates user account
+6. Returns Macro access and refresh tokens
+
+### GitHub OAuth
+
+**Endpoint:** `POST /oauth2/github`
+
+Similar flow to Google OAuth:
+
+1. User authorizes GitHub access
+2. Service receives GitHub authorization code
+3. Code is exchanged for GitHub access token
+4. User profile is retrieved and linked to FusionAuth
+5. Macro tokens are issued
+
+<Note>
+  OAuth2 flows automatically create user accounts if they don't exist.
+</Note>
+
+## Session-Based Authentication
+
+Mobile apps use a session code flow for secure authentication:
+
+### Session Creation
+
+**Endpoint:** `POST /session/create`
+
+1. Desktop app generates session code and stores refresh token in Redis
+2. QR code or deep link is displayed with session code
+3. Mobile app scans QR code or opens deep link
+4. Mobile app calls `/session/login/{session_code}`
+5. Service retrieves refresh token from Redis
+6. New token pair is issued to mobile app
+
+<ParamField path="session_code" type="string" required>
+  Temporary session identifier (stored in Redis with TTL)
+</ParamField>
+
+**Session Login:**
+```bash
+GET /session/login/{session_code}
+```
+
+**Response:**
+```json
+{
+  "access_token": "...",
+  "refresh_token": "..."
+}
+```
+
+## Service-to-Service Authentication
+
+Internal microservices use a different authentication mechanism:
+
+### Internal API Key
+
+Services authenticate with each other using a shared secret:
+
+<ParamField header="X-Internal-Auth" type="string" required>
+  Shared internal API key for service-to-service calls
+</ParamField>
+
+**Example:**
+```rust
+let client = DocumentStorageServiceClient::new(
+    internal_auth_key,
+    service_url
+);
+```
+
+The client automatically includes the internal auth header:
+```
+X-Internal-Auth: {SERVICE_INTERNAL_AUTH_KEY}
+```
+
+<Warning>
+  Internal API keys are stored in AWS Secrets Manager and injected via environment variables. Never commit them to source control.
+</Warning>
+
+## Rate Limiting
+
+Authentication endpoints are rate-limited to prevent abuse:
+
+- **Passwordless login** - Limited by email address (prevents email spam)
+- **Login attempts** - Limited by IP address (prevents brute force)
+- **Token refresh** - Advisory locks prevent concurrent refresh (currently disabled)
+
+Rate limit responses:
+```json
+{
+  "status": 429,
+  "message": "Too many requests"
+}
+```
+
+## Security Best Practices
+
+### Token Storage
+
+- **Web apps:** Use HTTP-only cookies (default)
+- **Mobile apps:** Store tokens in secure platform storage (Keychain/Keystore)
+- **Never:** Store tokens in localStorage or sessionStorage (vulnerable to XSS)
+
+### Token Rotation
+
+- Access tokens should be refreshed before expiry
+- Implement automatic token refresh in API client middleware
+- Handle 401 responses by attempting refresh, then re-authenticating
+
+### HTTPS Only
+
+- All authentication endpoints require HTTPS in production
+- Cookies have `Secure` flag set (HTTPS-only)
+- Bearer tokens should only be transmitted over HTTPS
+
+<Warning>
+  Local development may use HTTP, but production **must** use HTTPS for all authentication flows.
+</Warning>
+
+## Error Responses
+
+<ResponseField name="400 Bad Request" type="object">
+  ```json
+  {
+    "message": "invalid email" | "no access token to refresh" | "invalid session code"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="401 Unauthorized" type="object">
+  ```json
+  {
+    "message": "user has not verified their primary email" | "unable to login user" | "jwt expired"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="429 Too Many Requests" type="object">
+  ```json
+  {
+    "message": "Refresh already in progress for this user" | "Rate limit exceeded"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="500 Internal Server Error" type="object">
+  ```json
+  {
+    "message": "unable to refresh token" | "unable to register user"
+  }
+  ```
+</ResponseField>
+
+## Code Examples
+
+### JavaScript/TypeScript (Web)
+
+```javascript
+// Login with credentials
+const response = await fetch('https://api.macro.com/login/password', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  credentials: 'include', // Include cookies
+  body: JSON.stringify({
+    email: 'user@example.com',
+    password: 'password123'
+  })
+});
+
+const { access_token, refresh_token } = await response.json();
+
+// Tokens are also set in HTTP-only cookies automatically
+```
+
+### Refresh Token Flow
+
+```javascript
+// Refresh expired access token
+const refreshResponse = await fetch('https://api.macro.com/jwt/refresh', {
+  method: 'POST',
+  credentials: 'include', // Sends cookies with access_token and refresh_token
+});
+
+if (refreshResponse.status === 401) {
+  // Refresh token expired, redirect to login
+  window.location.href = '/login';
+} else {
+  const { access_token } = await refreshResponse.json();
+  // New access token received, continue with request
+}
+```
+
+### Bearer Token (Mobile/API)
+
+```javascript
+// Using bearer token authentication
+const apiResponse = await fetch('https://api.macro.com/api/documents', {
+  method: 'GET',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+    'X-Macro-Refresh-Token': refreshToken
+  }
+});
+```
+
+## Next Steps
+
+- Explore the [API Overview](/api/overview) for service architecture
+- Review the [Authentication Service API](/api/authentication-service) for specific endpoints
+- Learn about [user permissions and roles](/guide/permissions)

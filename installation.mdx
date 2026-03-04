@@ -1,0 +1,271 @@
+---
+title: Installation
+description: Set up Macro locally for development with frontend and backend services
+---
+
+# Installation
+
+This guide covers running Macro locally for development. Macro uses a SolidJS frontend and Rust microservices backend.
+
+<Warning>
+This is a work in progress. We currently only support running services against dev-assets.
+</Warning>
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Doppler**: For environment variable management
+- **Docker**: Required for running backend services
+- **AWS**: AWS credentials configured for development
+- **SQLX**: For database migrations and queries
+- **Bun**: JavaScript runtime and package manager for the frontend
+- **Just**: Command runner (alternative to Make)
+
+## Initial setup
+
+<Steps>
+  <Step title="Export environment variables">
+    Set the required AWS KMS ARN for SOPS encryption:
+    
+    ```bash
+    export SOPS_KMS_ARN="arn:aws:kms:us-east-1:569036502058:key/mrk-cab29bf948044eb79005a81f48d40e93,arn:aws:kms:us-west-1:569036502058:key/mrk-cab29bf948044eb79005a81f48d40e93"
+    ```
+    
+    <Note>
+      If you're using `nix-shell`, this step is handled automatically.
+    </Note>
+  </Step>
+  
+  <Step title="Run setup command">
+    Initialize your entire development environment:
+    
+    ```bash
+    just setup
+    ```
+    
+    This command will:
+    - Install dependencies
+    - Set up databases
+    - Configure Docker containers
+    - Initialize development secrets
+  </Step>
+</Steps>
+
+## Running the application
+
+### Backend services
+
+Macro's backend consists of multiple Rust microservices:
+
+- **document-storage-service**: Document storage API
+- **email_service**: Email processing and sync
+- **comms_service**: Messaging and channels
+- **search_service**: Full-text search across all content
+- **authentication_service**: User authentication
+- **connection_gateway**: WebSocket gateway for real-time features
+
+<Tabs>
+  <Tab title="Start all services">
+    ```bash
+    just run_local
+    ```
+    
+    This starts all required backend services via Docker Compose.
+  </Tab>
+  
+  <Tab title="Rebuild containers">
+    If you've made changes to service code and updated the Docker image:
+    
+    ```bash
+    just run_local --build
+    ```
+    
+    The `--build` flag triggers Docker Compose to rebuild containers.
+  </Tab>
+</Tabs>
+
+<Note>
+By default, `convert_service` and `search_processing_service` are not run locally as they're not needed by the frontend when using dev assets.
+</Note>
+
+### Frontend application
+
+The frontend is built with SolidJS and can run as a web app or desktop app (via Tauri).
+
+<Steps>
+  <Step title="Navigate to frontend directory">
+    ```bash
+    cd js/app
+    ```
+  </Step>
+  
+  <Step title="Install dependencies">
+    ```bash
+    bun i
+    ```
+  </Step>
+  
+  <Step title="Start development server">
+    ```bash
+    just local
+    ```
+    
+    This starts the frontend pointed at your local backend services. The app will be available at `http://localhost:3000/app`.
+  </Step>
+</Steps>
+
+## Development workflow
+
+### Running tests
+
+```bash
+bun run test
+```
+
+For specific test files:
+
+```bash
+bun run test -- packages/core/tests/date.test.ts -c packages/core
+```
+
+### Code quality checks
+
+<CodeGroup>
+```bash Type checking
+bun run check
+```
+
+```bash Linting
+bun run lint
+```
+
+```bash Formatting
+bun run format
+```
+</CodeGroup>
+
+### Authentication for local testing
+
+The app uses cookie-based authentication. To generate an access token for testing:
+
+```bash
+bun scripts/generate-access-token.ts
+```
+
+<Note>
+This requires a `.env` file with `REFRESH_TOKEN` and `FUSIONAUTH_DOMAIN` configured.
+</Note>
+
+## Architecture overview
+
+Understanding the project structure will help you navigate the codebase:
+
+```
+macro/
+├── js/app/                      # Frontend (SolidJS + Tauri)
+│   ├── packages/
+│   │   ├── app/                 # Web/Desktop app entry point
+│   │   ├── core/                # Core shared logic and components
+│   │   ├── lexical-core/        # Core text editor (Lexical-based)
+│   │   ├── block-*/             # UI block components (email, chat, canvas)
+│   │   └── service-*/           # API clients for backend services
+│   └── src-tauri/               # Tauri Rust backend for desktop
+│
+├── rust/cloud-storage/          # Backend services (Rust)
+│   ├── document-storage-service/
+│   ├── email_service/
+│   ├── comms_service/
+│   ├── search_service/
+│   ├── authentication_service/
+│   ├── connection_gateway/
+│   ├── macro_db_client/         # PostgreSQL client
+│   └── ...                      # Other services and shared crates
+│
+├── infra/                       # Infrastructure (Pulumi + AWS)
+│   ├── stacks/                  # Pulumi deployment stacks
+│   ├── lambda/                  # Lambda function configs
+│   └── resources/               # Reusable AWS resource definitions
+│
+└── scripts/                     # Build and utility scripts
+```
+
+### Frontend architecture
+
+- **packages/app**: Main application entry point
+- **packages/core**: Shared components, utilities, and business logic
+- **packages/lexical-core**: Rich text editor implementation based on Lexical
+- **block-* packages**: Specialized UI components for different content types (email, canvas, chat)
+- **service-* packages**: API clients that communicate with backend microservices
+
+### Backend architecture
+
+Macro uses a microservices architecture with Rust:
+
+- Each service handles a specific domain (documents, email, messaging, search)
+- Services communicate via REST APIs and WebSocket connections
+- PostgreSQL database accessed via the `macro_db_client` crate
+- AWS infrastructure managed with Pulumi
+
+## Development best practices
+
+<Note>
+These guidelines help maintain code quality and consistency across the Macro codebase.
+</Note>
+
+### General principles
+
+1. **Follow existing code styles**: Check neighboring files for patterns before introducing new approaches
+2. **Composability**: Write small, testable, pure functions when possible
+3. **Simplicity**: Prioritize the simplest correct solution over introducing complexity
+4. **Testing**: Write tests for your changes. When fixing bugs, identify the issue with a test before fixing it
+5. **Decoupling**: Decouple pure business logic from UI and network layers
+6. **Type-driven design**: Let types guide function composition. **Do not use `any`**
+
+### Frontend-specific guidelines
+
+- Avoid deprecated APIs like `blockSignals`, `blockMemos`, `blockResources`
+- Primitive UI components should be pure and prefer composition over complex global state
+- Use semantic color tokens instead of default Tailwind styles
+- All network calls to service clients should go through TanStack Query in the `queries` package
+- For exhaustive switch statements, use `match` from `ts-pattern`
+- Check for existing `solid-primitives` before creating custom utilities
+- If you create or modify a Lexical Node, increment the version counter in `packages/core/component/LexicalMarkdown/version.ts`
+
+## Troubleshooting
+
+### Services won't start
+
+1. Ensure Docker is running
+2. Verify AWS credentials are configured
+3. Check that all environment variables are set correctly
+4. Try rebuilding containers: `just run_local --build`
+
+### Frontend authentication issues
+
+1. Verify backend services are running
+2. Generate a fresh access token: `bun scripts/generate-access-token.ts`
+3. Check that `.env` file contains valid `REFRESH_TOKEN` and `FUSIONAUTH_DOMAIN`
+
+### Database connection errors
+
+1. Ensure PostgreSQL is running (usually managed by Docker Compose)
+2. Verify database migrations have run: check SQLX setup
+3. Confirm `macro_db_client` configuration matches your local setup
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Explore the codebase" icon="code">
+    Familiarize yourself with the directory structure and key packages
+  </Card>
+  <Card title="Run the test suite" icon="flask">
+    Execute `bun run test` to ensure everything is working
+  </Card>
+  <Card title="Make your first change" icon="pencil">
+    Try modifying a UI component and see it hot-reload in the browser
+  </Card>
+  <Card title="Join the community" icon="users">
+    Email contribute@macro.com to connect with other developers
+  </Card>
+</CardGroup>

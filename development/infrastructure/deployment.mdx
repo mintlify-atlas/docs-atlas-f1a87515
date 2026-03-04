@@ -1,0 +1,154 @@
+---
+title: Deployment
+description: Pulumi-based deployment process and environments
+---
+
+## Overview
+
+Macro uses [Pulumi](https://www.pulumi.com/) with TypeScript for infrastructure as code (IaC). All infrastructure is deployed to AWS `us-east-1` region.
+
+## Infrastructure Structure
+
+The infrastructure is organized as a monorepo with individual stacks for each service:
+
+```
+infra/
+├── packages/
+│   ├── lambda/          # Lambda utilities and builders
+│   ├── resources/       # Reusable Pulumi components
+│   └── shared/          # Shared configuration and utilities
+└── stacks/              # Service-specific infrastructure
+    ├── authentication-service/
+    ├── cloud-storage-service/
+    ├── connection-gateway/
+    ├── document-storage/
+    ├── email-service/
+    ├── notification-service/
+    ├── opensearch/
+    └── ...
+```
+
+## Environments
+
+Macro has two deployment environments:
+
+- **dev** - Development environment
+- **prod** - Production environment
+
+Each stack has separate Pulumi configuration files:
+- `Pulumi.dev.yaml` - Dev environment config
+- `Pulumi.prod.yaml` - Prod environment config
+
+## Deploying a Stack
+
+### Prerequisites
+
+1. Install Pulumi CLI
+2. Configure AWS credentials and access to the AWS org
+3. Set up [Pulumi with AWS](https://www.pulumi.com/registry/packages/aws/installation-configuration/)
+4. Install dependencies with `bun install`
+
+### Deployment Commands
+
+Pulumi commands must be run from within the specific stack directory:
+
+```bash
+cd infra/stacks/my-service/
+
+# Preview changes
+pulumi preview --stack dev
+
+# Deploy to dev
+pulumi up --stack dev
+
+# Deploy to prod
+pulumi up --stack prod
+
+# Destroy resources
+pulumi destroy --stack dev
+```
+
+## Common Stack Components
+
+Most service stacks include:
+
+### ECS Services
+- Docker container deployments on AWS ECS
+- Load balancers and auto-scaling
+- Health checks and monitoring
+
+### Lambda Functions
+- Event-driven serverless functions
+- S3 triggers for document processing
+- SQS queue consumers
+
+### Databases
+- RDS PostgreSQL instances
+- Connection pooling with RDS Proxy
+- Secrets management via AWS Secrets Manager
+
+### Message Queues
+- SQS queues for async processing
+- Dead letter queues (DLQ) for failed messages
+- CloudWatch alarms on DLQ depth
+
+## Stack References
+
+Stacks reference outputs from other stacks using `pulumi.StackReference`:
+
+```typescript
+const opensearchStack = new pulumi.StackReference('opensearch-stack', {
+  name: `macro-inc/opensearch/${stack}`,
+});
+
+const OPENSEARCH_URL = opensearchStack
+  .getOutput('domainEndpoint')
+  .apply((endpoint) => `https://${endpoint}`);
+```
+
+This allows sharing resources like:
+- Database URLs
+- Queue ARNs
+- Bucket names
+- API endpoints
+
+## Environment Variables
+
+Services receive configuration through:
+
+1. **Secrets Manager** - Sensitive values like API keys, database passwords
+2. **Stack Config** - Environment-specific settings in `Pulumi.{env}.yaml`
+3. **Container Environment Variables** - Service configuration passed to ECS/Lambda
+
+## Monitoring and Logging
+
+All infrastructure includes:
+
+- **CloudWatch Logs** - Service logs and application output
+- **Datadog** - Centralized logging and metrics (us-central-1)
+- **CloudWatch Alarms** - Alerts for DLQs, service health, and resource usage
+- **Container Insights** - ECS cluster monitoring
+
+## Resource Tagging
+
+All resources are tagged with:
+- `environment` - dev or prod
+- `tech_lead` - Responsible team lead
+- `project` - Service/component name
+
+Example:
+```typescript
+const tags = {
+  environment: stack,
+  tech_lead: 'hutch',
+  project: 'cloud-storage-service',
+};
+```
+
+## Best Practices
+
+1. **Always preview before deploying** - Use `pulumi preview` to review changes
+2. **Test in dev first** - Deploy to dev and validate before prod
+3. **Use stack references** - Avoid hardcoding ARNs or URLs
+4. **Enable point-in-time recovery** - Automatically enabled for prod DynamoDB tables
+5. **Set up proper alarms** - Monitor DLQs and critical metrics

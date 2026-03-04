@@ -1,0 +1,523 @@
+---
+title: Docker Setup
+description: Docker Compose setup and local development environment
+---
+
+## Overview
+
+Macro uses Docker Compose to run all services locally, providing a complete development environment that mirrors production infrastructure.
+
+## Architecture
+
+The Docker setup is split across multiple compose files:
+
+- `docker-compose.yml` - Main application services
+- `docker-compose-databases.yml` - Database services (PostgreSQL, Redis, OpenSearch)
+- `infra/stacks/fusionauth-instance/docker-compose.yml` - FusionAuth authentication
+
+## Prerequisites
+
+- Docker and Docker Compose
+- Just (command runner)
+- Doppler (for secrets management)
+- AWS CLI (for credentials)
+- SQLX CLI (for database migrations)
+
+## Initial Setup
+
+### 1. Export SOPS KMS ARN
+
+```bash
+export SOPS_KMS_ARN="arn:aws:kms:us-east-1:569036502058:key/mrk-cab29bf948044eb79005a81f48d40e93,arn:aws:kms:us-west-1:569036502058:key/mrk-cab29bf948044eb79005a81f48d40e93"
+```
+
+You can skip this if using nix-shell.
+
+### 2. Run Setup
+
+```bash
+just setup
+```
+
+This command will:
+- Decrypt and prepare environment variables (`.env`)
+- Create Docker networks (`databases`, `auth`)
+- Setup LocalStack for AWS emulation
+- Initialize local databases
+- Setup FusionAuth
+- Build development service images
+
+## Docker Networks
+
+Three Docker networks connect services:
+
+```bash
+just create_networks
+```
+
+Creates:
+- `databases` - For database connections
+- `auth` - For FusionAuth
+- `services` - For inter-service communication
+
+## Database Services
+
+### PostgreSQL
+
+```yaml
+Service: postgres
+Image: postgres:16
+Port: 5432
+User: user
+Password: password
+Volume: macro_postgres_data
+```
+
+**Health Check:**
+```bash
+pg_isready -U postgres
+```
+
+### Redis
+
+```yaml
+Service: redis
+Image: redis/redis-stack:latest
+Ports: 
+  - 6379 (Redis)
+  - 8001 (Redis Stack UI)
+Volume: macro_redis_data
+```
+
+**Features:**
+- Redis Stack includes RedisJSON, RedisSearch, RedisGraph
+- Web UI available at http://localhost:8001
+
+### OpenSearch
+
+```yaml
+Service: search
+Image: opensearchproject/opensearch:latest
+Ports:
+  - 9200 (REST API)
+  - 9600 (Performance Analyzer)
+Volume: macro_opensearch_data
+```
+
+**Configuration:**
+- Single-node cluster
+- Security disabled for local development
+- 512MB JVM heap
+- Admin password: `yourStrongPassword123!`
+
+### Running Databases Only
+
+```bash
+just run_dbs
+
+# Or detached mode
+just run_dbs -d
+
+# Stop databases
+just stop-databases
+```
+
+## Application Services
+
+All services are built from `rust/cloud-storage` with different targets:
+
+### Core Services
+
+**authentication-service** (Port 8080)
+```yaml
+Dependencies: postgres, fusionauth, redis
+Networks: auth, databases, services
+Context: ./rust/cloud-storage
+Target: authentication_service
+```
+
+**document_storage_service** (Port 8086)
+```yaml
+Dependencies: redis, connection_gateway, authentication-service
+Networks: databases, services
+Target: document_storage_service
+```
+
+**email_service** (Port 8087)
+```yaml
+Dependencies: authentication-service, document_storage_service, 
+              connection_gateway, static_file_service, redis
+Networks: databases, services
+Target: email_service
+```
+
+**notification_service** (Port 8089)
+```yaml
+Dependencies: redis, document_cognition_service, 
+              authentication-service, connection_gateway,
+              document_storage_service
+Networks: databases, services
+Target: notification_service
+```
+
+### Processing Services
+
+**document_cognition_service** (Port 8085)
+```yaml
+Dependencies: document_storage_service, email_service, static_file_service
+Networks: databases, services
+Target: document_cognition_service
+```
+
+**search_processing_service** (Port 8092)
+```yaml
+Profile: processors
+Dependencies: email_service
+Networks: databases, services
+Dockerfile: Dockerfile.search_processing_service.dev
+```
+
+Note: Not run by default - only needed when processing search indexing.
+
+### Gateway and Connection Services
+
+**connection_gateway** (Port 8082)
+```yaml
+Dependencies: redis
+Networks: databases, services
+Target: connection_gateway_service
+```
+
+**websocket_service** (Port 6969)
+```yaml
+Context: ./js/websocket-service
+Networks: services
+```
+Simple WebSocket service that responds with "ping" to all messages.
+
+### File Services
+
+**static_file_service** (Port 8094)
+```yaml
+Networks: databases, services
+Target: static_file_service
+```
+
+**static_file_cdn** (Port 8100)
+```yaml
+Image: nginx:alpine
+Config: ./infra/local/nginx/static-file-cdn.conf
+```
+Local CloudFront emulation - routes to S3 and static_file_service.
+
+### Utility Services
+
+**contacts_service** (Port 8083)
+```yaml
+Networks: databases, services
+Target: contacts_service
+```
+
+**unfurl_service** (Port 8095)
+```yaml
+Networks: services
+Target: unfurl_service
+```
+URL unfurling with no dependencies.
+
+**image_proxy_service** (Port 8097)
+```yaml
+Networks: services
+Target: image_proxy_service
+```
+Proxies external images to avoid CORS issues and IP leakage.
+
+### Sync and Conversion Services
+
+**sync_service** (Port 8787)
+```yaml
+Context: ./rust/sync-service
+Networks: services
+Environment: INTERNAL_API_SECRET_KEY
+```
+Document sync using Cloudflare Workers/Durable Objects (via miniflare).
+
+**lexical_service** (Port 8096)
+```yaml
+Context: ./js/lexical-service
+Dependencies: sync_service
+Environment:
+  - PORT=8096
+  - INTERNAL_AUTH_KEY
+  - SYNC_SERVICE_AUTH_KEY
+  - SYNC_SERVICE_URL=http://sync_service:8787
+```
+Converts Lexical JSON to various formats.
+
+## Running Services Locally
+
+### Start All Services
+
+```bash
+just run_local
+```
+
+This will:
+1. Create Docker networks
+2. Start all services defined in docker-compose files
+
+### Start with Rebuild
+
+If you've updated code and need fresh images:
+
+```bash
+just run_local --build
+```
+
+### Start Specific Services
+
+```bash
+# Start only databases and auth service
+docker compose up postgres redis authentication-service
+
+# Start with processors profile
+docker compose --profile processors up
+```
+
+### Stop Services
+
+```bash
+just stop-local
+
+# Or stop everything including volumes
+docker compose down -v
+```
+
+## Health Checks
+
+All services include health checks:
+
+```yaml
+healthcheck:
+  test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 10s
+```
+
+Check service health:
+```bash
+docker compose ps
+```
+
+## Environment Variables
+
+Services use a common environment configuration:
+
+```yaml
+x-common-env: &common-env
+  env_file:
+    - .env
+```
+
+All services inherit from `common-env` anchor.
+
+### Get Environment File
+
+```bash
+# Decrypt from SOPS
+just get_environment
+
+# With AWS credential injection
+just get_environment -local
+
+# Edit encrypted environment
+just edit_environment
+```
+
+## Database Management
+
+### Initialize Databases
+
+```bash
+just setup_local_dbs
+```
+
+This will:
+1. Start databases in detached mode
+2. Create MacroDB
+3. Run migrations
+4. Stop databases
+
+### Individual Database Setup
+
+```bash
+just setup_macrodb      # Main database
+just setup_contactsdb   # Contacts database
+```
+
+## Docker Cache Management
+
+### Clear All Build Cache
+
+```bash
+just docker_cache_clear
+```
+
+Forces cold rebuild next time.
+
+### Clear Rust Target Cache Only
+
+```bash
+just docker_cache_clear_targets
+```
+
+Keeps downloaded crates but forces recompilation.
+
+### Check Cache Usage
+
+```bash
+just docker_cache_usage
+```
+
+## FusionAuth Setup
+
+### Start FusionAuth
+
+```bash
+just setup_fusionauth
+```
+
+This will:
+1. Create Docker networks
+2. Start FusionAuth containers
+3. Wait for healthy status
+4. Run Pulumi configuration
+
+### Stop FusionAuth
+
+```bash
+just stop_fusionauth
+```
+
+## LocalStack
+
+AWS service emulation for local development:
+
+```bash
+just setup_localstack
+```
+
+Provides local versions of:
+- S3
+- SQS
+- Lambda
+- DynamoDB
+- Secrets Manager
+
+## Troubleshooting
+
+### Service Won't Start
+
+1. Check logs:
+   ```bash
+   docker compose logs -f [service-name]
+   ```
+
+2. Verify dependencies are healthy:
+   ```bash
+   docker compose ps
+   ```
+
+3. Rebuild images:
+   ```bash
+   just run_local --build
+   ```
+
+### Database Connection Issues
+
+1. Ensure databases are running:
+   ```bash
+   docker compose ps postgres redis search
+   ```
+
+2. Check migrations are applied:
+   ```bash
+   just setup_macrodb
+   ```
+
+3. Verify `.env` file has correct credentials
+
+### Port Conflicts
+
+If ports are already in use:
+
+1. Stop conflicting services
+2. Or modify port mappings in `docker-compose.yml`
+
+### Clean Reset
+
+```bash
+just destroy
+```
+
+This removes all containers and volumes for a fresh start.
+
+## Building Service Images
+
+Services use multi-stage Dockerfiles:
+
+```bash
+# Build all dev service images
+just rust/cloud-storage/build_dev_service_images
+
+# Build specific service
+docker compose build [service-name]
+```
+
+## Common Workflows
+
+### Full Development Environment
+
+```bash
+# First time setup
+just setup
+
+# Start everything
+just run_local
+
+# Check all services healthy
+docker compose ps
+```
+
+### Backend Development
+
+```bash
+# Start databases and core services
+docker compose up -d postgres redis search authentication-service
+
+# Run your service locally outside Docker for faster iteration
+cd rust/cloud-storage
+cargo run -p my_service
+```
+
+### Frontend Development
+
+```bash
+# Start all backend services
+just run_local -d
+
+# Run frontend
+cd js/app && bun i && just local
+```
+
+### Testing Changes
+
+```bash
+# Rebuild and restart single service
+docker compose up -d --build document_storage_service
+
+# View logs
+docker compose logs -f document_storage_service
+```

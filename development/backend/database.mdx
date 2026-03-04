@@ -1,0 +1,299 @@
+---
+title: Database Architecture
+description: Database schema management and migration workflow
+---
+
+## Database Overview
+
+Macro uses PostgreSQL as its primary database with multiple logical databases for separation of concerns:
+
+- **MacroDB** - Main database for documents, users, communication, and email
+- **ContactsDB** - User connections and contacts
+
+## Technology Stack
+
+- **Database:** PostgreSQL
+- **ORM/Query Builder:** SQLx with compile-time query validation
+- **Schema Management:** Prisma (schema definition) + SQLx (migrations)
+- **Migration Tool:** `sqlx-cli`
+- **Offline Development:** `SQLX_OFFLINE=true` mode for builds without DB connection
+
+## MacroDB Schema Management
+
+### Schema Definition
+
+The schema for MacroDB is defined in the Prisma schema file:
+
+```
+macro-api/database/schema.prisma
+```
+
+This file defines:
+- Table structures
+- Relationships between entities
+- Column types and constraints
+- Indexes for performance
+
+### Important: Column Naming
+
+**Prisma uses camelCase, but PostgreSQL stores them as camelCase too.**
+
+When querying, you must cast column names to snake_case:
+
+```sql
+-- ❌ Wrong - won't work
+SELECT userId FROM "UserInsights"
+
+-- ✅ Correct - cast to snake_case
+SELECT "userId" as "user_id" FROM "UserInsights"
+```
+
+Refer to `schema.prisma` for actual column names, not the Rust struct field names.
+
+## Migration Workflow
+
+### Making Schema Changes
+
+When you need to modify the MacroDB schema:
+
+1. **Edit the schema** in `macro-api/database/schema.prisma`
+
+2. **Create migration** from the `macro-api/database` folder:
+
+```bash
+just create-migration my_migration_name
+```
+
+This generates a migration file and applies it to your local database.
+
+3. **Update SQLx metadata** from `macro-api/cloud-storage`:
+
+```bash
+just setup_macrodb
+```
+
+4. **Prepare database queries** in `macro-api/cloud-storage/macro_db_client`:
+
+```bash
+just prepare_db
+```
+
+This updates the `.sqlx` directory with query metadata for offline compilation.
+
+### Troubleshooting Migrations
+
+If you encounter migration errors after running `just setup_macrodb`:
+
+1. **Force drop and recreate** in `macro-api/cloud-storage/macro_db_client`:
+
+```bash
+just force_drop_db
+```
+
+2. **Recreate the database** from `macro-api/cloud-storage`:
+
+```bash
+just setup_macrodb
+```
+
+### After SQL Code Changes
+
+**Any time you modify SQL queries in Rust code**, you must update the SQLx cache:
+
+```bash
+# From macro-api/cloud-storage/macro_db_client
+just prepare_db
+```
+
+This ensures the `.sqlx` metadata stays in sync with your queries.
+
+## Database Client Pattern
+
+Each logical database has its own client crate:
+
+- `macro_db_client` - MacroDB access
+- `comms_db_client` - Communications data (uses MacroDB)
+- `email_db_client` - Email data (uses MacroDB)
+- `contacts_db_client` - ContactsDB access
+- `notification_db_client` - Notification data (uses MacroDB)
+- `properties_db_client` - Properties data (uses MacroDB)
+
+### Database Client Structure
+
+```
+macro_db_client/
+├── src/
+│   ├── lib.rs           # Public API
+│   ├── documents.rs     # Document queries
+│   ├── users.rs         # User queries
+│   └── migrations/      # SQL migration files
+├── .sqlx/               # Cached query metadata
+├── .env                 # DATABASE_URL
+└── Cargo.toml
+```
+
+## SQLx Query Patterns
+
+### Compile-Time Verified Queries
+
+SQLx validates queries at compile time:
+
+```rust
+use sqlx::PgPool;
+
+pub async fn get_document(
+    pool: &PgPool,
+    document_id: &str,
+) -> Result<Document> {
+    // This query is validated at compile time!
+    let doc = sqlx::query_as!(
+        Document,
+        r#"
+        SELECT 
+            id,
+            "userId" as "user_id",
+            title,
+            "createdAt" as "created_at"
+        FROM documents
+        WHERE id = $1
+        "#,
+        document_id
+    )
+    .fetch_one(pool)
+    .await?;
+    
+    Ok(doc)
+}
+```
+
+### Query Macro Types
+
+- `query!()` - Returns anonymous record
+- `query_as!()` - Maps to a struct
+- `query_scalar!()` - Returns single scalar value
+
+All validate column names, types, and nullability at compile time.
+
+## Offline Development
+
+SQLx supports offline mode for building without a database connection:
+
+```bash
+SQLX_OFFLINE=true cargo build
+```
+
+This uses cached query metadata from the `.sqlx` directory.
+
+### Updating Offline Cache
+
+When you add or modify queries:
+
+```bash
+# Ensure database is running and migrations applied
+just prepare_db
+```
+
+This generates/updates `.sqlx/query-*.json` files with query metadata.
+
+## Database Setup Commands
+
+### Initialize All Databases
+
+From `macro-api/cloud-storage`:
+
+```bash
+just initialize_dbs
+```
+
+This sets up all required databases for local development.
+
+### Individual Database Setup
+
+```bash
+just setup_macrodb      # Main database
+just setup_commsdb      # Communications (deprecated, now in MacroDB)
+just setup_emaildb      # Email (deprecated, now in MacroDB)
+just setup_contactsdb   # Contacts database
+```
+
+## Testing with Databases
+
+### Test Environment Setup
+
+```bash
+# Start PostgreSQL in Docker
+docker-compose up -d macrodb
+
+# Create .env files for all db_client crates
+just setup_test_envs
+
+# Initialize databases
+just initialize_dbs
+
+# Run tests (do NOT set SQLX_OFFLINE)
+cargo test
+```
+
+### Test Database URLs
+
+Tests use a consistent database URL defined in `justfile:1-2`:
+
+```
+MACRODB := "postgres://user:password@localhost:5432/macrodb"
+DATABASE_URL := "postgres://user:password@localhost:5432"
+```
+
+## Best Practices
+
+### Always Test After DB Changes
+
+From CLAUDE.md:
+> "Always run tests between changes that involve changes to db queries"
+
+### Migration Workflow Summary
+
+1. Edit `schema.prisma`
+2. `just create-migration <name>` (from `macro-api/database`)
+3. `just setup_macrodb` (from `macro-api/cloud-storage`)
+4. `just prepare_db` (from db client crate, e.g. `macro_db_client`)
+5. Test your changes: `cargo test -p macro_db_client`
+
+### When Making DB Crate Changes
+
+From CLAUDE.md:
+> "When making changes to a db crate you should always update tests, and run prepare"
+
+```bash
+# After modifying queries in macro_db_client
+cd macro_db_client
+just prepare_db
+cargo test
+```
+
+## Index Strategy
+
+When creating migrations, include appropriate indexes:
+
+- **Composite indexes** for frequently queried column combinations
+- **Foreign key indexes** for relationship lookups
+- **Timestamp indexes** for time-based ordering
+- **Unique indexes** for constraint enforcement
+
+Example from entity mentions migration:
+
+```sql
+CREATE INDEX idx_entity_mentions_entity 
+    ON entity_mentions(entity_type, entity_id);
+    
+CREATE INDEX idx_entity_mentions_source 
+    ON entity_mentions(source_entity_type, source_entity_id);
+    
+CREATE INDEX idx_entity_mentions_created 
+    ON entity_mentions(created_at);
+```
+
+## Next Steps
+
+- [API Design](/development/backend/api) - Learn about API patterns
+- [Testing](/development/backend/testing) - Database testing strategies
+- [Services](/development/backend/services) - How services use database clients

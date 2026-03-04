@@ -1,0 +1,610 @@
+---
+title: 'Real-Time Collaboration'
+description: 'Collaborate in real-time with CRDT-powered editing'
+icon: 'users'
+---
+
+Macro uses CRDT (Conflict-free Replicated Data Types) technology for real-time collaborative editing. Multiple people can edit the same document simultaneously without conflicts or lost changes.
+
+## How It Works
+
+<CardGroup cols={2}>
+  <Card title="Live Sync" icon="bolt">
+    Changes sync in real-time as you type. No "save" button needed - edits appear instantly for all collaborators.
+  </Card>
+  
+  <Card title="Conflict-Free" icon="shield-check">
+    CRDT technology automatically merges concurrent edits. Two people can edit the same paragraph without conflicts.
+  </Card>
+  
+  <Card title="Offline Support" icon="wifi-slash">
+    Keep editing offline. Changes sync automatically when you reconnect, merged with others' edits.
+  </Card>
+  
+  <Card title="Full History" icon="clock-rotate-left">
+    Every change is tracked. Undo/redo works across all collaborators with proper conflict resolution.
+  </Card>
+</CardGroup>
+
+## Real-Time Features
+
+### Live Cursors
+
+See where collaborators are working in real-time:
+
+<Frame>
+  <img src="/images/live-cursors.png" alt="Live cursors showing collaborators" />
+</Frame>
+
+- **Colored cursors** show each person's position
+- **Name labels** appear above cursors
+- **Selection highlights** show what text they've selected
+- **Typing indicators** appear when someone is actively typing
+
+<Tip>
+  Hover over a cursor to see the collaborator's full name and when they joined the session.
+</Tip>
+
+### Presence Awareness
+
+Know who's actively working on a document:
+
+<Tabs>
+  <Tab title="Active Now">
+    Collaborators currently viewing or editing the document.
+    
+    - Green indicator next to avatar
+    - Cursor visible in real-time
+    - Last activity: "typing now"
+  </Tab>
+  
+  <Tab title="Recently Active">
+    Collaborators who viewed/edited in the last hour.
+    
+    - Yellow indicator next to avatar  
+    - Cursor not visible
+    - Last activity: "15 minutes ago"
+  </Tab>
+  
+  <Tab title="Has Access">
+    People with permission who aren't currently active.
+    
+    - Gray indicator next to avatar
+    - Shows "Offline" status
+    - Can invite to edit: @mention their name
+  </Tab>
+</Tabs>
+
+### Live Updates
+
+Content updates in real-time across all surfaces:
+
+<AccordionGroup>
+  <Accordion title="Documents & Notes">
+    - Text changes appear character-by-character
+    - Formatting updates (bold, italic, links) sync instantly
+    - Block additions/deletions (headings, lists, images) sync immediately
+    - @mentions and references resolve in real-time
+    - Cursor position preserved even as others edit around you
+  </Accordion>
+  
+  <Accordion title="Channels & Messaging">
+    - New messages appear instantly
+    - Typing indicators show who's composing
+    - Read receipts update in real-time
+    - Reactions and emoji responses sync immediately
+    - Thread updates notify participants
+  </Accordion>
+  
+  <Accordion title="Tasks & Checklists">
+    - Status changes (complete/incomplete) sync instantly
+    - Due date and assignee updates appear immediately
+    - Comments and activity appear in real-time
+    - Checklist items can be edited concurrently
+  </Accordion>
+  
+  <Accordion title="Canvas & Diagrams">
+    - Elements move and resize in real-time
+    - Multiple people can drag different objects simultaneously
+    - Color and style changes sync instantly
+    - Connector lines update as connected elements move
+  </Accordion>
+</AccordionGroup>
+
+## Collaborative Editing
+
+### Concurrent Editing
+
+Multiple people can edit the same document at the same time:
+
+<Steps>
+  <Step title="Open Same Document">
+    All collaborators open the same document. You'll see their avatars in the top-right.
+  </Step>
+  
+  <Step title="Edit Anywhere">
+    Each person can edit different sections - or even the same section. CRDT merges changes automatically.
+  </Step>
+  
+  <Step title="See Live Updates">
+    Changes appear in real-time. Your cursor position is preserved even as others insert text above you.
+  </Step>
+  
+  <Step title="No Conflicts">
+    If two people edit the same word simultaneously, CRDT intelligently merges both changes. No "locked" sections or "refresh to see latest" warnings.
+  </Step>
+</Steps>
+
+<Info>
+  **Example:** Alice types "The quick brown fox" while Bob types "jumped over" in the same paragraph. Result: "The quick brown fox jumped over" - both edits preserved.
+</Info>
+
+### Undo & Redo
+
+Macro's collaborative undo works across all users:
+
+| Action | Behavior |
+| --- | --- |
+| **Cmd+Z** (your changes) | Undo your own edits, even if others edited after you |
+| **Cmd+Shift+Z** (your changes) | Redo your own edits |
+| **Others' changes** | Others' edits stay intact when you undo |
+| **Undo stack** | Each user has independent undo/redo history |
+
+<Tabs>
+  <Tab title="Your Edits">
+    Press **Cmd+Z** to undo your recent changes. Only your edits are undone - collaborators' changes remain.
+    
+    The undo system is CRDT-aware:
+    - Tracks your edits separately from others
+    - Preserves others' concurrent changes  
+    - Works even after going offline and reconnecting
+  </Tab>
+  
+  <Tab title="Others' Edits">
+    You cannot undo someone else's changes directly. To revert their edits:
+    
+    1. Select the text they added
+    2. Delete it (or edit it)
+    3. Your deletion syncs to all collaborators
+    
+    Or use **Document History** (Cmd+H) to restore to a previous version.
+  </Tab>
+</Tabs>
+
+### Version History
+
+Every change is saved in document history:
+
+<Steps>
+  <Step title="Open History">
+    Press **Cmd+H** (Ctrl+H on Windows/Linux) to open version history panel.
+  </Step>
+  
+  <Step title="Browse Versions">
+    Scroll through timeline of changes:
+    - Who made the change
+    - When it was made  
+    - What changed (diff view)
+  </Step>
+  
+  <Step title="Preview Version">
+    Click any version to preview the document at that point in time.
+  </Step>
+  
+  <Step title="Restore or Branch">
+    From preview:
+    - **Restore**: Revert document to this version (creates new edit)
+    - **Branch**: Create new document from this version
+    - **Compare**: See diff between versions
+  </Step>
+</Steps>
+
+<Warning>
+  Restoring a version doesn't delete history. It creates a new edit that reverts to the old state. You can still access all versions via history.
+</Warning>
+
+## Collaboration Workflows
+
+### Document Co-Authoring
+
+<Tabs>
+  <Tab title="Writing Together">
+    **Best for:** Meeting notes, brainstorming, documentation
+    
+    1. Share document in channel: `Let's draft this together @doc-link`
+    2. Everyone opens document simultaneously  
+    3. Assign sections: "Alice, take intro. Bob, handle methodology."
+    4. Edit in real-time - no need to coordinate who edits when
+    5. Use comments for questions: Highlight text → **Cmd+Opt+M**
+  </Tab>
+  
+  <Tab title="Review & Edit">
+    **Best for:** Proposals, reports, content review
+    
+    1. Author shares draft: `Ready for review @proposal`
+    2. Reviewers can:
+       - Edit directly (if Editor access)
+       - Add comments (if Viewer access)
+       - Suggest changes via comments
+    3. Author sees all changes/comments in real-time
+    4. Resolve comments as addressed: Click checkmark
+    5. Version history shows who changed what
+  </Tab>
+  
+  <Tab title="Live Meeting Notes">
+    **Best for:** Capturing decisions and action items
+    
+    1. Create note before meeting: `Meeting notes @meeting-doc`
+    2. Share screen showing document
+    3. Designated note-taker types main points
+    4. Others can:
+       - Add details they heard
+       - Drop links and references
+       - Create action items: `- [ ] @john Follow up with legal`
+    5. Everyone leaves with same notes, no distribution needed
+  </Tab>
+</Tabs>
+
+### Channel Collaboration
+
+<CardGroup cols={2}>
+  <Card title="Team Channels" icon="users-rectangle">
+    **Use for:** Ongoing project communication
+    
+    - Post updates and documents
+    - @mention for attention: `@alice check this out`
+    - Thread replies to keep context
+    - Pin important messages/docs
+    - All members see history in real-time
+  </Card>
+  
+  <Card title="Direct Messages" icon="comment">
+    **Use for:** 1-on-1 or small group chat
+    
+    - Quick questions and coordination
+    - Share drafts for quick review  
+    - Real-time typing indicators
+    - Works same as channels, just fewer people
+  </Card>
+</CardGroup>
+
+### Canvas Collaboration
+
+Multiple people can work on the same canvas:
+
+<AccordionGroup>
+  <Accordion title="Diagramming Together">
+    - Each person can drag/create different elements
+    - See others' cursors moving elements in real-time
+    - Embedded @links update automatically
+    - Changes sync instantly - no refresh needed
+    - Selection highlights show what others are editing
+  </Accordion>
+  
+  <Accordion title="Whiteboarding">
+    - Use canvas as virtual whiteboard
+    - Everyone can add sticky notes simultaneously
+    - Group and organize ideas together
+    - Works great for remote brainstorming
+    - Export to PDF when done: **Cmd+P**
+  </Accordion>
+</AccordionGroup>
+
+## @Mentions and References
+
+### @Mention People
+
+Bring people into context:
+
+```markdown
+@john Can you review this section?
+
+@alice @bob Let's discuss the timeline
+
+cc: @sarah for visibility
+```
+
+**What happens:**
+- Mentioned person gets notification
+- Notification links directly to that spot in document
+- They can reply inline or in comments
+- Creates bidirectional reference (they can see where they were mentioned)
+
+### @Mention Content
+
+Link to other documents, tasks, or files:
+
+```markdown
+See the full proposal: @q4-proposal
+
+Action item: @task-update-website  
+
+Refer to diagram: @architecture-diagram
+
+Source: @meeting-notes-2024-03-15
+```
+
+**Benefits:**
+- Live links that update if target changes
+- Bidirectional - target document shows "Mentioned in..."
+- Permissions automatically granted (Viewer by default)
+- Works in docs, channels, emails, tasks
+
+<Tip>
+  Type `@` and start typing to search all content. Works anywhere in the editor.
+</Tip>
+
+## Comments and Discussions
+
+### Inline Comments
+
+Add comments to specific parts of a document:
+
+<Steps>
+  <Step title="Select Text">
+    Highlight the text you want to comment on.
+  </Step>
+  
+  <Step title="Add Comment">
+    Press **Cmd+Opt+M** (Ctrl+Alt+M on Windows/Linux) or click the comment icon.
+  </Step>
+  
+  <Step title="Write Comment">
+    Type your comment. You can:
+    - @mention people for attention
+    - Include @links to other content  
+    - Format with markdown
+    - Add emoji reactions
+  </Step>
+  
+  <Step title="Collaborate">
+    Others see comment in real-time. They can:
+    - Reply to comment (threaded)
+    - Resolve comment (checkmark)
+    - React with emoji
+    - Edit the document to address comment
+  </Step>
+</Steps>
+
+### Comment Threads
+
+Comments can have threaded replies:
+
+- **Original comment** anchored to specific text
+- **Replies** appear indented below
+- **Resolve** when addressed (doesn't delete, just marks done)
+- **Re-open** if more discussion needed
+- **Notifications** sent to thread participants when new replies added
+
+<Info>
+  Hover over any commented text to see the comment thread. Click to expand full conversation.
+</Info>
+
+## Offline Collaboration
+
+### How Offline Works
+
+<Tabs>
+  <Tab title="Going Offline">
+    You lose internet connection while editing.
+    
+    **What happens:**
+    - Document remains open and editable
+    - Your changes are saved locally
+    - You see a "Working offline" indicator
+    - Others' cursors disappear (you can't see their new changes)
+  </Tab>
+  
+  <Tab title="Editing Offline">
+    You can continue editing normally.
+    
+    **Works:**
+    - All editing features (typing, formatting, @mentions)
+    - Undo/redo
+    - Saving to local device
+    
+    **Doesn't work:**
+    - Seeing others' new changes
+    - Sending messages
+    - Fetching new data (images, linked content)
+  </Tab>
+  
+  <Tab title="Reconnecting">
+    You regain internet connection.
+    
+    **What happens:**
+    - Your changes sync automatically
+    - Others' changes from while you were offline appear
+    - CRDT merges all changes conflict-free
+    - Cursor positions update
+    - "Working offline" indicator disappears
+  </Tab>
+</Tabs>
+
+### Conflict Resolution
+
+CRDT handles conflicts automatically:
+
+<CodeGroup>
+```plaintext Scenario 1: Different Sections
+You (offline):  Edit paragraph 1
+Alice (online): Edit paragraph 3
+
+After sync:
+Both edits preserved in their respective paragraphs. ✓
+```
+
+```plaintext Scenario 2: Same Section  
+You (offline):  Change "apple" to "orange"
+Bob (online):   Change "apple" to "banana"
+
+After sync:
+Last writer wins at character level, but both edits
+are in version history. Typically: "orangebanana" or
+"bananaorange" depending on exact timing. ✓
+```
+
+```plaintext Scenario 3: Deleted Content
+You (offline):  Edit paragraph 2
+Carol (online): Delete paragraph 2
+
+After sync:
+Your edited version appears (delete is overridden
+by your concurrent edit). ✓
+```
+</CodeGroup>
+
+<Warning>
+  While CRDT prevents data loss, same-section offline edits may produce unexpected results. Check version history after reconnecting if multiple people edited the same area.
+</Warning>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Communicate Intent" icon="comments">
+    Use comments or channel messages to coordinate:
+    - "I'm editing the intro now"
+    - "Alice, can you review section 3?"
+    - Reduces overlapping edits in same area
+  </Card>
+  
+  <Card title="Use @Mentions" icon="at">
+    @mention people for visibility:
+    - Brings them into context
+    - Auto-grants access
+    - Creates notification
+    - Builds reference trail
+  </Card>
+  
+  <Card title="Resolve Comments" icon="check">
+    Mark comments resolved when addressed:
+    - Keeps document clean
+    - Shows progress
+    - Comments remain in history
+    - Can re-open if needed
+  </Card>
+  
+  <Card title="Review Version History" icon="clock-rotate-left">
+    Check history after collaboration sessions:
+    - See what changed
+    - Verify no unintended edits
+    - Restore if needed
+    - Understand contribution
+  </Card>
+</CardGroup>
+
+### For Large Teams
+
+<Steps>
+  <Step title="Assign Sections">
+    Divide document into sections, assign owners. Reduces overlapping edits.
+  </Step>
+  
+  <Step title="Use Comments for Discussion">
+    Don't edit directly if uncertain - add comment to discuss first.
+  </Step>
+  
+  <Step title="Designate a Lead">
+    One person responsible for final edits and resolving conflicts.
+  </Step>
+  
+  <Step title="Regular Syncs">
+    If multiple offline editors, sync frequently to catch conflicts early.
+  </Step>
+</Steps>
+
+## Collaboration Settings
+
+Customize collaboration behavior:
+
+<AccordionGroup>
+  <Accordion title="Cursor & Presence">
+    **Settings** > **Collaboration** > **Presence**
+    
+    - Show/hide collaborator cursors
+    - Show/hide name labels
+    - Cursor color assignment (auto or manual)
+    - Idle timeout (when cursor disappears)
+  </Accordion>
+  
+  <Accordion title="Notifications">
+    **Settings** > **Notifications** > **Collaboration**
+    
+    - Notify when someone @mentions you
+    - Notify when someone edits a doc you're in
+    - Notify when someone comments
+    - Notify when collaborators join/leave
+  </Accordion>
+  
+  <Accordion title="Auto-Save">
+    **Settings** > **Documents** > **Auto-Save**
+    
+    - Auto-save interval (default: instant)
+    - Local backup frequency
+    - Offline storage limits
+    - Sync on window blur/close
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="I don't see others' cursors">
+    **Possible causes:**
+    - They're viewing but not editing (cursors only show when active)
+    - You have cursors hidden in settings
+    - Connection issue (check "Working offline" indicator)
+    - They're viewing an older version (version history mode)
+    
+    **Fix:** Check presence list (top-right avatars) to see who's actually in the document.
+  </Accordion>
+  
+  <Accordion title="Changes not syncing">
+    **Check:**
+    - Internet connection (look for "Working offline")
+    - Whether others have refreshed (unlikely needed, but possible)
+    - Browser console for errors
+    
+    **Fix:** 
+    - Wait a few seconds (large changes take time)
+    - Refresh page (edits are saved, will sync on reload)
+    - Check version history to see if changes were recorded
+  </Accordion>
+  
+  <Accordion title="My edits were overwritten">
+    **Check version history:**
+    1. Press **Cmd+H**
+    2. Find your edits in timeline
+    3. See if someone edited after you
+    
+    **If your edits are missing:**  
+    - They may have been in offline mode and overwritten your changes
+    - Restore from version history
+    - Contact support if changes are completely lost (very rare)
+  </Accordion>
+  
+  <Accordion title="Conflicts after reconnecting">
+    **Normal behavior:** CRDT merges changes, but results may look odd if same text edited.
+    
+    **To resolve:**
+    1. Review version history to see both sets of changes
+    2. Manually edit to desired state
+    3. Use comments to discuss with collaborator
+    
+    **Prevention:** Coordinate edits in channel before going offline.
+  </Accordion>
+</AccordionGroup>
+
+## Technical Details
+
+Macro uses **Loro CRDT** for collaboration:
+
+- **CRDT** = Conflict-free Replicated Data Type
+- **Eventual consistency**: All clients converge to same state
+- **Commutative operations**: Order of edits doesn't matter
+- **Causality tracking**: Preserves intent even with concurrent edits
+- **Compact representation**: Efficient network usage
+
+<Info>
+  For developers: See the [Lexical Editor](/development/frontend/editor) for implementation details and CRDT integration.
+</Info>

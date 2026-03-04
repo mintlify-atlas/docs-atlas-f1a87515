@@ -1,0 +1,440 @@
+---
+title: Backend Testing
+description: Testing practices and patterns for Macro's backend services
+---
+
+## Testing Philosophy
+
+From CLAUDE.md:
+> "When making changes, make sure to test the services individually before committing using `cargo test -p {my_service}` from the cloud-storage folder."
+
+## Test Environment Setup
+
+### Initial Setup
+
+Before running tests for the first time:
+
+```bash
+# Create Docker volume for database persistence
+docker volume create macro_db_volume
+
+# Start PostgreSQL in Docker
+docker-compose up -d macrodb
+
+# Create .env files for all database client crates
+just setup_test_envs
+
+# Initialize all databases with migrations
+just initialize_dbs
+
+# Run all tests (IMPORTANT: do NOT set SQLX_OFFLINE)
+cargo test
+```
+
+### Database URL Configuration
+
+The `just setup_test_envs` command creates `.env` files in all database client crates with:
+
+```
+DATABASE_URL=postgres://user:password@localhost:5432/macrodb
+```
+
+Crates that receive `.env` files include:
+- `macro_db_client`
+- `comms_db_client`
+- `email_db_client`
+- `contacts_db_client`
+- `notification_db_client`
+- `properties_db_client`
+- And all services that use these databases
+
+## Running Tests
+
+### Run All Tests
+
+```bash
+# From cloud-storage directory
+cargo test
+```
+
+**Important:** Do NOT set `SQLX_OFFLINE=true` when running tests. Tests need a live database connection.
+
+### Test Individual Services
+
+```bash
+# Test a specific service
+cargo test -p document_storage_service
+
+# Test a database client
+cargo test -p macro_db_client
+
+# Test with output visible
+cargo test -p email_service -- --nocapture
+```
+
+### Test Specific Modules or Functions
+
+```bash
+# Test a specific module
+cargo test -p comms_service channels
+
+# Test a specific function
+cargo test -p macro_db_client test_create_document
+```
+
+## Test File Organization
+
+**Pattern:** Place tests in a separate `test.rs` file within the module directory.
+
+```
+src/
+  documents/
+    mod.rs      # Implementation + "#[cfg(test)] mod test;"
+    test.rs     # All test functions
+```
+
+### Implementation File (`mod.rs` or `documents.rs`)
+
+```rust
+// Module implementation
+pub async fn create_document(/* ... */) -> Result<Document> {
+    // Implementation
+}
+
+// At the end of the file
+#[cfg(test)]
+mod test;
+```
+
+### Test File (`test.rs`)
+
+```rust
+use super::*;
+use sqlx::PgPool;
+
+#[tokio::test]
+async fn test_create_document() {
+    let pool = setup_test_db().await;
+    
+    let doc = create_document(
+        &pool,
+        "Test Document".to_string(),
+    ).await.unwrap();
+    
+    assert_eq!(doc.title, "Test Document");
+}
+
+#[tokio::test]
+async fn test_get_document() {
+    // Test implementation
+}
+```
+
+From CLAUDE.md:
+> "This keeps implementation files focused and makes tests easier to locate and maintain."
+
+## Database Testing Patterns
+
+### Test Database Setup
+
+```rust
+use sqlx::PgPool;
+
+#[tokio::test]
+async fn test_database_operation() {
+    // Pool is created from DATABASE_URL in .env
+    let pool = PgPool::connect(&std::env::var("DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    
+    // Run migrations if needed
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .unwrap();
+    
+    // Your test logic
+}
+```
+
+### Test Fixtures
+
+Many tests use fixtures for test data:
+
+```rust
+mod fixtures {
+    use super::*;
+    
+    pub async fn create_test_user(pool: &PgPool) -> User {
+        sqlx::query_as!(
+            User,
+            r#"
+            INSERT INTO users (id, email, name)
+            VALUES ($1, $2, $3)
+            RETURNING *
+            "#,
+            Uuid::new_v4(),
+            "test@example.com",
+            "Test User"
+        )
+        .fetch_one(pool)
+        .await
+        .unwrap()
+    }
+    
+    pub async fn create_test_document(
+        pool: &PgPool,
+        user_id: Uuid,
+    ) -> Document {
+        // Create test document
+    }
+}
+
+#[tokio::test]
+async fn test_with_fixtures() {
+    let pool = setup_pool().await;
+    let user = fixtures::create_test_user(&pool).await;
+    let doc = fixtures::create_test_document(&pool, user.id).await;
+    
+    // Test logic using fixtures
+}
+```
+
+### Important: Update Fixtures After Schema Changes
+
+From CLAUDE.md case study:
+> "When changing table structures, update test fixtures accordingly"
+
+Example: When renaming `message_mentions` to `entity_mentions`, all fixture references need updating.
+
+## Testing After Database Changes
+
+### Critical Workflow
+
+From CLAUDE.md:
+> "Always run tests between changes that involve changes to db queries"
+
+When you modify database queries:
+
+1. Update the query in code
+2. Run `just prepare_db` to update SQLx cache
+3. Run tests: `cargo test -p <crate_name>`
+4. Fix any failures
+5. Commit changes
+
+### After Schema Migrations
+
+```bash
+# 1. Create migration
+cd macro-api/database
+just create-migration add_new_column
+
+# 2. Setup database
+cd ../cloud-storage
+just setup_macrodb
+
+# 3. Prepare SQLx cache
+cd macro_db_client
+just prepare_db
+
+# 4. Run tests
+cargo test -p macro_db_client
+
+# 5. If tests fail, fix them and re-run prepare_db
+just prepare_db
+cargo test -p macro_db_client
+```
+
+## Testing Lambda Functions
+
+Lambda functions use `lambda_runtime` for testing:
+
+```rust
+use lambda_runtime::{Error, LambdaEvent};
+use aws_lambda_events::event::sqs::SqsEvent;
+
+#[tokio::test]
+async fn test_lambda_handler() {
+    let event = create_test_sqs_event();
+    let result = handler(event).await;
+    assert!(result.is_ok());
+}
+
+fn create_test_sqs_event() -> LambdaEvent<SqsEvent> {
+    // Create test event
+}
+```
+
+## Service Integration Tests
+
+Integration tests live in `integration_tests/` directory:
+
+```
+integration_tests/
+├── document_flow/
+│   ├── Cargo.toml
+│   └── tests/
+│       └── upload_process.rs
+└── email_flow/
+    ├── Cargo.toml
+    └── tests/
+        └── send_receive.rs
+```
+
+Example integration test:
+
+```rust
+use document_storage_service_client::DocumentStorageClient;
+use search_service_client::SearchServiceClient;
+
+#[tokio::test]
+async fn test_document_upload_and_search() {
+    // Start services (or use test containers)
+    let doc_client = DocumentStorageClient::new(doc_url);
+    let search_client = SearchServiceClient::new(search_url);
+    
+    // Upload document
+    let doc = doc_client.upload_document(/* ... */).await.unwrap();
+    
+    // Wait for indexing
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    
+    // Search for document
+    let results = search_client.search(&doc.title).await.unwrap();
+    assert!(results.contains(&doc.id));
+}
+```
+
+## Pre-Commit Checks
+
+Before committing, run:
+
+```bash
+# Format code
+cargo fmt
+
+# Lint and check best practices
+just clippy
+
+# Type check without building
+just check
+
+# Run tests for changed crates
+cargo test -p my_changed_service
+```
+
+From CLAUDE.md:
+
+```bash
+cargo fmt                   # format
+just clippy                 # extra lints / best practices
+```
+
+## Mock Dependencies
+
+Use `mockall` for mocking dependencies:
+
+```rust
+use mockall::mock;
+use mockall::predicate::*;
+
+mock! {
+    pub S3Client {
+        async fn upload_file(
+            &self,
+            bucket: &str,
+            key: &str,
+            data: Vec<u8>,
+        ) -> Result<()>;
+    }
+}
+
+#[tokio::test]
+async fn test_with_mock_s3() {
+    let mut mock_s3 = MockS3Client::new();
+    
+    mock_s3
+        .expect_upload_file()
+        .with(eq("test-bucket"), eq("file.txt"), always())
+        .times(1)
+        .returning(|_, _, _| Ok(()));
+    
+    // Test function that uses S3
+    let result = upload_document(&mock_s3, /* ... */).await;
+    assert!(result.is_ok());
+}
+```
+
+## Test Cleanup
+
+If your test database gets corrupted or out of sync:
+
+```bash
+# Stop Docker containers
+docker-compose down
+
+# Remove all containers
+docker rm $(docker ps -qa)
+
+# Remove database volume
+docker volume rm macro_db_volume
+
+# Recreate from scratch
+docker volume create macro_db_volume
+docker-compose up -d macrodb
+just setup_test_envs
+just initialize_dbs
+cargo test
+```
+
+## Common Test Patterns
+
+### Testing Error Cases
+
+```rust
+#[tokio::test]
+async fn test_invalid_document_id() {
+    let pool = setup_pool().await;
+    
+    let result = get_document(&pool, "invalid-id").await;
+    
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("not found"));
+}
+```
+
+### Testing Async Streams
+
+```rust
+use tokio_stream::StreamExt;
+
+#[tokio::test]
+async fn test_document_stream() {
+    let pool = setup_pool().await;
+    
+    let mut stream = stream_documents(&pool);
+    let mut count = 0;
+    
+    while let Some(doc) = stream.next().await {
+        count += 1;
+        assert!(!doc.title.is_empty());
+    }
+    
+    assert_eq!(count, 5);
+}
+```
+
+## Test Coverage
+
+While not enforced, aim for:
+- Unit tests for business logic
+- Integration tests for API endpoints
+- Database tests for all query functions
+- Error path testing
+
+## Next Steps
+
+- [Overview](/development/backend/overview) - Understand the architecture
+- [Services](/development/backend/services) - Learn about service structure
+- [Database](/development/backend/database) - Database testing specifics
+- [API Design](/development/backend/api) - API testing patterns

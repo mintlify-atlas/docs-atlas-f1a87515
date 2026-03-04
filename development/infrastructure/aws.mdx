@@ -1,0 +1,351 @@
+---
+title: AWS Services
+description: AWS services and configuration used by Macro
+---
+
+## Overview
+
+Macro's infrastructure runs entirely on AWS in the `us-east-1` region. The system uses a variety of AWS services for storage, compute, databases, and message processing.
+
+## S3 (Simple Storage Service)
+
+### Document Storage Bucket
+
+Primary storage for all user documents and files:
+
+```typescript
+Bucket: document-storage-{stack}
+Prod name: macro-document-storage-prod
+```
+
+**Features:**
+- Transfer acceleration enabled for prod
+- Versioning enabled
+- Cross-region replication for disaster recovery
+- EventBridge notifications enabled
+- CORS configured with exposed headers: `Content-Length`, `Content-Range`
+
+**Lifecycle Rules:**
+- Temp files (`temp_files/` prefix) expire after 1 day
+- Noncurrent versions expire after 30 days
+- Expired object delete markers are cleaned up
+
+### DOCX Upload Bucket
+
+Temporary storage for DOCX file processing:
+
+```typescript
+Bucket: docx-upload-{stack}
+```
+
+**Features:**
+- S3 event triggers Lambda for DOCX unzipping
+- Files automatically expire after 1 day
+- Used in document upload pipeline
+
+### Bulk Upload Staging Bucket
+
+Staging area for bulk document uploads:
+
+```typescript
+Bucket: bulk-upload-staging-{stack}
+```
+
+## Lambda
+
+### Document Processing Lambdas
+
+Serverless functions for document handling:
+
+**Document Text Extractor**
+- Extracts text from uploaded documents
+- Triggered by S3 events or SQS messages
+- Rust-based for performance
+
+**DOCX Unzip Handler**
+- Processes DOCX files on upload
+- Unzips and extracts content
+- Triggers downstream conversion
+- Environment variables:
+  ```
+  DATABASE_URL_PROXY
+  REDIS_URI
+  DOCUMENT_STORAGE_BUCKET
+  DOCX_DOCUMENT_UPLOAD_BUCKET
+  CONVERT_QUEUE
+  WEB_SOCKET_RESPONSE_LAMBDA
+  ```
+
+**Upload Extractor Lambda**
+- Handles bulk upload extraction
+- Processes zip files containing multiple documents
+
+### Chat and Document Management Lambdas
+
+**Delete Chat Handler**
+- Processes chat deletion requests
+- Triggered via SQS queue
+- Cleans up associated resources
+
+**Delete Document Handler**
+- Handles document deletion
+- Removes from S3 and database
+- Triggered via SQS queue
+
+**Deleted Item Poller**
+- Polls for items marked for deletion
+- Schedules cleanup jobs
+
+### Other Lambdas
+
+**Email Suppression**
+- Manages email suppression lists
+- Handles bounces and complaints
+
+**User Link Cleanup**
+- Cleans up expired user links
+- Scheduled execution
+
+**Email SFS Delete Handler**
+- Handles Simple File Storage deletions for email attachments
+
+## SQS (Simple Queue Service)
+
+Message queues for asynchronous processing:
+
+### Queue Structure
+
+Each queue includes:
+- Main queue for processing
+- Dead Letter Queue (DLQ) for failed messages
+- CloudWatch alarms on DLQ depth
+- Default visibility timeout: 30 seconds
+- Max receive count: 5 (before moving to DLQ)
+
+### Key Queues
+
+**Search Event Queue**
+```typescript
+Queue: search-event-queue-{stack}
+```
+- Document indexing events
+- Consumed by search processing service
+
+**Contacts Queue**
+```typescript
+Queue: contacts-queue-{stack}
+```
+- Contact synchronization events
+- User connection updates
+
+**Notification Queue**
+```typescript
+Queue: notification-queue-{stack}
+```
+- User notification events
+- Push notification triggers
+
+**Delete Document Queue**
+```typescript
+Queue: delete-document-queue-{stack}
+```
+- Document deletion jobs
+- Processed by delete document handler
+
+**Delete Chat Queue**
+```typescript
+Queue: delete-chat-queue-{stack}
+```
+- Chat deletion jobs
+
+**Convert Queue**
+```typescript
+Queue: convert-queue-{stack}
+```
+- Document format conversion jobs
+
+**Upload Queue**
+```typescript
+Queue: upload-queue-{stack}
+```
+- Bulk upload processing
+
+## DynamoDB
+
+### Connection Gateway Table
+
+Tracks WebSocket connections:
+
+```typescript
+Table: connection-gateway-table-{stack}
+```
+
+**Schema:**
+- `PK` (String) - Partition key
+- `SK` (String) - Sort key
+- Global Secondary Index: `ConnectionPkIndex` (SK as hash key, PK as range key)
+
+**Features:**
+- Point-in-time recovery enabled for prod
+- Pay-per-request billing mode
+
+### Bulk Upload Requests Table
+
+Tracks bulk upload job status:
+
+```typescript
+Table: bulk-upload-{stack}
+```
+
+### Frecency Table
+
+Stores document access frequency and recency data:
+
+```typescript
+Table: frecency-{stack}
+```
+
+## OpenSearch
+
+Full-text search and analytics engine:
+
+**Domain Endpoint:**
+```typescript
+https://{domainEndpoint}
+```
+
+**Configuration:**
+- Single-node cluster for dev, multi-node for prod
+- Security disabled for local development
+- Custom username: `macrouser`
+- Password stored in AWS Secrets Manager
+
+**Usage:**
+- Document full-text search
+- Email message search
+- Search result ranking and relevance
+
+## RDS (Relational Database Service)
+
+### MacroDB
+
+Main PostgreSQL database:
+
+**Schema includes:**
+- Users and authentication
+- Documents and projects
+- Messages and channels
+- Email threads and messages
+- Notification preferences
+
+**Access:**
+- Direct connection via `DATABASE_URL`
+- Connection pooling via RDS Proxy (`DATABASE_URL_PROXY`)
+- Schema managed with Prisma migrations
+
+### ContactsDB
+
+Separate database for contact management:
+
+**Schema includes:**
+- User connections
+- Contact information
+- Relationship metadata
+
+## Secrets Manager
+
+Centralized secret storage:
+
+**Common Secrets:**
+- `macro_db_secret_key` - Database connection URL
+- `macro_cache_secret_key` - Redis connection URL  
+- `macro_db_proxy_secret_key` - RDS Proxy connection URL
+- `jwt_secret_key` - JWT signing key
+- `internal_api_key` - Internal service authentication
+- `sync_service_auth_key` - Sync service authentication
+- `authentication_service_secret_key` - Auth service key
+- `opensearch_password_key` - OpenSearch password
+- `document_storage_permissions_key` - Document permission JWT key
+- `fusionauth_client_id` - FusionAuth OAuth client ID
+- `github_webhook_secret_key` - GitHub webhook verification
+- `github_sync_app_pem` - GitHub app private key
+
+**Best Practices:**
+- Secrets are referenced by ID, not embedded
+- Lambda and ECS tasks granted read permissions via IAM
+- Secrets rotated regularly for production
+
+## ElastiCache (Redis)
+
+Caching layer using Redis:
+
+**Configuration:**
+- Redis Stack for advanced features
+- Used for session storage, caching, and pub/sub
+
+**Access:**
+```typescript
+redis://{MACRO_CACHE}
+```
+
+## CloudWatch
+
+### Logs
+
+- All Lambda executions logged
+- ECS container logs streamed
+- Log retention policies applied
+
+### Alarms
+
+**DLQ Alarms:**
+- Trigger when any message appears in DLQ
+- SNS notifications to on-call team
+
+**Service Health:**
+- ECS task health checks
+- API endpoint monitoring
+
+### Metrics
+
+- Container Insights for ECS clusters
+- Custom metrics from services
+- Integration with Datadog
+
+## IAM (Identity and Access Management)
+
+### Service Roles
+
+Each service has dedicated IAM roles with least-privilege permissions:
+
+- S3 bucket access (read/write to specific buckets)
+- SQS send/receive permissions
+- Secrets Manager read access
+- DynamoDB table access
+- Lambda invocation permissions
+
+### Policy Structure
+
+Policies are created per resource:
+- `{service}-access-policy-{stack}` for DynamoDB tables
+- Queue-specific send/receive policies
+- Bucket policies for S3 access
+
+## EventBridge
+
+Event-driven integrations:
+
+- S3 object creation events
+- Scheduled Lambda executions
+- Cross-service event routing
+
+## VPC (Virtual Private Cloud)
+
+Network isolation:
+
+**VPC Configuration:**
+- Services run in `coparse_api_vpc`
+- Private subnets for databases
+- Public subnets for load balancers
+- NAT gateways for outbound access
+- Security groups for service isolation
