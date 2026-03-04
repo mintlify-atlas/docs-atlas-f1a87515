@@ -36,6 +36,7 @@
             "pages": [
               "features/email",
               "features/messaging",
+              "features/tasks",
               "features/documents",
               "features/canvas",
               "features/linking",

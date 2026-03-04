@@ -1,0 +1,264 @@
+---
+title: Tasks
+description: Create, manage, and track tasks with powerful @linking and search
+---
+
+Macro's task management system helps you organize work alongside your emails, messages, and documents. Tasks integrate seamlessly with the rest of your workspace through @linking and unified search.
+
+## Core Capabilities
+
+<CardGroup cols={2}>
+  <Card title="Quick Capture" icon="bolt">
+    Create tasks instantly from anywhere with keyboard shortcuts
+  </Card>
+  
+  <Card title="Rich Context" icon="link">
+    @link tasks to documents, emails, and conversations for full context
+  </Card>
+  
+  <Card title="Powerful Search" icon="magnifying-glass">
+    Find tasks with filters for status, assignee, due date, and more
+  </Card>
+  
+  <Card title="Checkbox Integration" icon="square-check">
+    Convert checkboxes in documents to tasks automatically
+  </Card>
+</CardGroup>
+
+## Creating Tasks
+
+### Quick Task Creation
+
+Press `Cmd+Shift+T` from anywhere to create a new task.
+
+<Steps>
+  <Step title="Open task composer">
+    Press `Cmd+Shift+T` or use the command menu (`Cmd+K` → "new task")
+  </Step>
+  
+  <Step title="Enter task details">
+    - **Title**: What needs to be done
+    - **Description**: Add context with rich text and @links
+    - **Due date**: Set a deadline
+    - **Assignee**: Assign to yourself or team members
+    - **Status**: Todo, in progress, or done
+  </Step>
+  
+  <Step title="Add context">
+    @mention related documents, emails, or channels to provide context
+  </Step>
+</Steps>
+
+### From Checkboxes
+
+Macro automatically converts checkboxes in documents to tasks:
+
+```markdown
+- [ ] Review Q1 budget proposal
+- [ ] Update team roadmap in @Planning Doc
+- [ ] Send follow-up email to @alice
+```
+
+When you check a box in a document, it updates the corresponding task status.
+
+<Info>
+Checkbox-to-task conversion works in any Markdown document. The task stays linked to the checkbox, so changes sync both ways.
+</Info>
+
+### From Channels
+
+Create tasks directly from channel messages:
+
+1. Hover over a message
+2. Click the "Create task" action
+3. The task is created with the message content and a @link back to the conversation
+
+## Managing Tasks
+
+### Task Status
+
+Tasks can be in one of three states:
+
+- **Todo**: Not started
+- **In Progress**: Actively working on it
+- **Done**: Completed
+
+Update status by:
+- Clicking the status dropdown in task view
+- Using keyboard shortcuts (`Cmd+Shift+1/2/3`)
+- Checking/unchecking linked checkboxes
+
+### Due Dates
+
+Set and manage due dates with natural language:
+
+- "tomorrow"
+- "next week"
+- "Friday"
+- "in 3 days"
+- Specific dates: "2024-03-15"
+
+<Warning>
+Overdue tasks appear in your daily summary and in filtered searches. Use `due:[yesterday]` to find all overdue tasks.
+</Warning>
+
+### Assignees
+
+Assign tasks to yourself or team members:
+
+1. Open the task
+2. Click "Assignee" field
+3. @mention the person
+4. They'll receive a notification
+
+## Finding Tasks
+
+### Search Filters
+
+Use Macro's search to find tasks with powerful filters:
+
+```
+type:task status:todo
+type:task assignee:me
+type:task due:[1 week]
+type:task status:todo due:[yesterday]
+```
+
+### Common Queries
+
+| Query | Description |
+|-------|-------------|
+| `type:task assignee:me status:todo` | My open tasks |
+| `type:task due:[today]` | Due today |
+| `type:task due:[1 week]` | Due in the next week |
+| `type:task status:todo priority:high` | High priority open tasks |
+| `type:task created:[3 days]` | Created in last 3 days |
+
+<Tip>
+Save frequently-used task queries as saved views for quick access. Press `Cmd+K` → "save view" while viewing search results.
+</Tip>
+
+## Task Views
+
+### List View
+
+Default view showing tasks in a sortable list:
+
+- Group by status, assignee, or due date
+- Sort by priority, created date, or due date
+- Filter inline with search syntax
+
+### Board View
+
+Kanban-style board with columns for each status:
+
+1. Press `Cmd+K` → "task board"
+2. Drag tasks between columns to update status
+3. Group by assignee to see team workload
+
+## Integration with Workspace
+
+### @Linking Tasks
+
+Tasks integrate with the entire workspace through @links:
+
+**In Documents**
+```markdown
+The API redesign is tracked in @API Redesign Task.
+See implementation notes in @Technical Spec.
+```
+
+**In Channels**
+```markdown
+@alice can you review @Homepage Redesign Task?
+```
+
+**In Task Descriptions**
+```markdown
+This depends on @Authentication Service Task being completed first.
+Related discussion in @team-engineering channel.
+```
+
+All @links are bidirectional - you can see what references a task from the task view.
+
+### Task Context Panel
+
+When viewing a task, the context panel shows:
+
+- **Linked items**: Documents, emails, channels that reference this task
+- **Comments**: Threaded discussion about the task
+- **Activity**: History of changes (status, assignee, due date)
+- **Related tasks**: Tasks mentioned in this task's description
+
+### Channel Mentions
+
+When you @mention a task in a channel:
+
+```markdown
+I've updated @Website Redesign Task with the new timeline.
+```
+
+The task preview shows inline with:
+- Task title and status
+- Assignee and due date
+- Quick actions (mark complete, view details)
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Cmd+Shift+T` | Create new task |
+| `Cmd+Shift+1` | Set status to Todo |
+| `Cmd+Shift+2` | Set status to In Progress |
+| `Cmd+Shift+3` | Set status to Done |
+| `Cmd+Shift+9` | Toggle checkbox / task |
+| `Cmd+E` | Edit task |
+| `Cmd+D` | Set due date |
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Link tasks to context">
+    Always @link tasks to relevant documents, conversations, or emails. This makes it easy to find context later without digging through history.
+    
+    ```markdown
+    Task: Review API changes
+    Description: See detailed changes in @API Spec Doc
+    Related discussion: @engineering-team
+    ```
+  </Accordion>
+  
+  <Accordion title="Use descriptive titles">
+    Make task titles actionable and specific:
+    
+    ✅ "Review Q1 budget proposal and send feedback to @alice"
+    ❌ "Budget stuff"
+  </Accordion>
+  
+  <Accordion title="Set realistic due dates">
+    Use due dates for tasks that truly have deadlines. Not every task needs a due date - only set them when they provide value.
+  </Accordion>
+  
+  <Accordion title="Keep task descriptions current">
+    Update task descriptions as work progresses. Add @links to new documents or conversations that become relevant.
+  </Accordion>
+</AccordionGroup>
+
+## Task Notifications
+
+You'll receive notifications when:
+
+- A task is assigned to you
+- Someone @mentions you in a task comment
+- A task you're watching changes status
+- A task you created is marked complete
+- Tasks are due soon (daily summary)
+
+Configure notification preferences in **Settings** → **Notifications** → **Tasks**.
+
+## Related Features
+
+- [Search](/features/search) - Find tasks with powerful filters
+- [Linking](/features/linking) - Understanding @links and bidirectional references
+- [Documents](/features/documents) - Convert checkboxes to tasks
+- [Messaging](/features/messaging) - Create tasks from channel messages
